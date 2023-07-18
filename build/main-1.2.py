@@ -15,14 +15,15 @@
 # malkasiangroup@gmail.com
 #
 #-----------------------------------CHANGELOG----------------------------------------
-print("CURRENT VERSION: 1.1")
+print("CURRENT VERSION: 1.2 - Dev Build")
 #
-# Button added for smooth color fading - implemented CPU threadding to handle button requests
-# and to remove button lag.
-#
-# Web interface is larger and scales depending on the device viewing.
-#
+# KNOWN ISSUES:
+# Fails after the second attempt to update the password. Needs a looping function to keep trying to connect.
+# Error handling isn't great. Needs to be more robust.
+# Device now pulls wifi config data from external file rather than hardcoding locally.
 #------------------------------------IMPORTS-----------------------------------------
+import errno
+
 try:
     import usocket as socket
 except ImportError:
@@ -32,15 +33,13 @@ import time
 import network
 import gc
 import _thread
+import json
 from machine import Pin, PWM
 
 gc.collect()
 
-#------------------------------INITIAL VAR ASSIGNMENT------------------------------
 
-# ADD YOUR WIFI INFORMATION  (!!)
-ssid = 'FreedomBlend-Guest'
-password = 'americano'
+#------------------------------INITIAL VAR ASSIGNMENT------------------------------
 
 # CHANGE GPIO NIMBERS  (!!)
 red = PWM(Pin(0))
@@ -54,58 +53,189 @@ blue.freq(1000)
 brightness = 0
 isOn = False
 current_color = "white"
-
-# baton = _thread.allocate_lock()
-
-#------------------------------------WIRELESS CONNECTION-----------------------------
-
-station = network.WLAN(network.STA_IF)
-station.active(True)
-station.connect(ssid, password)
-max_retries = 50
-
-pulse_direction = 10
-while not station.isconnected() and max_retries > 0:
-    brightness += pulse_direction * 1000
-    if brightness >= 50000:
-        brightness = 50000
-        pulse_direction = -5
-    elif brightness <= 0:
-        brightness = 0
-        pulse_direction = 5
-    red.duty_u16(brightness)
-    green.duty_u16(int(brightness*0.5))
-    blue.duty_u16(0)
-
-    max_retries -= 1
-    time.sleep(0.1)
+ssid = ''
+password = ''
+data = {}
 
 red.duty_u16(0)
 green.duty_u16(0)
 blue.duty_u16(0)
 
-if station.isconnected():
-    print('Connection successful!')
-    print(station.ifconfig())
-    for i in range(10):
-        green.duty_u16(65025)
-        time.sleep(0.1)
-        green.duty_u16(0)
-        time.sleep(0.1)
-    green.duty_u16(65025)
-    time.sleep(2)
+# baton = _thread.allocate_lock() # Allows the core to be locked
+
+#------------------------------------WIRELESS CONNECTION-----------------------------
+
+def yes_validator():
+        userYesNo = input("Enter yes or no: ")
+        while userYesNo not in ['yes', 'no']:
+            userYesNo = input("Invalid entry: Please enter yes or no: ")
+        else:
+            return userYesNo
+
+def yes_decider(userYesNo):
+    if userYesNo == 'yes':
+        print("")
+        return userYesNo
+    elif userYesNo == 'no':
+        return userYesNo
+
+def lights_off():
     red.duty_u16(0)
     green.duty_u16(0)
     blue.duty_u16(0)
-else:
-    print('Connection failed after 50 attempts')
-    for i in range(16): 
-        red.duty_u16(65025)
-        time.sleep(0.1)
-        red.duty_u16(0)
-        time.sleep(0.1)
-    red.duty_u16(0)
 
+def connect_wifi():
+    global ssid, password, station, pulse_direction, brightness, max_retries
+    try:
+        with open('wifipasswords.json') as file:
+            data = json.load(file)
+            ssid = data["ssid"]
+            password = data["password"]
+        station.active(True)
+        station.connect(ssid, password)
+        max_retries = 50
+        pulse_direction = 10
+        while not station.isconnected() and max_retries > 0:
+            brightness += pulse_direction * 1000
+            if brightness >= 50000:
+                brightness = 50000
+                pulse_direction = -5
+            elif brightness <= 0:
+                brightness = 0
+                pulse_direction = 5
+            red.duty_u16(brightness)
+            green.duty_u16(int(brightness * 0.5))
+            blue.duty_u16(0)
+            max_retries -= 1
+            time.sleep(0.1)
+        if station.isconnected():
+            lights_off()
+            print('Connection successful!')
+            print(station.ifconfig())
+            for i in range(10):
+                green.duty_u16(65025)
+                time.sleep(0.1)
+                green.duty_u16(0)
+                time.sleep(0.1)
+            green.duty_u16(65025)
+            time.sleep(2)
+            lights_off()
+        else:
+            print("Connection Failed: No specific reason identified")
+            red.duty_u16(0)
+            green.duty_u16(0)
+            blue.duty_u16(0)
+            for i in range(5):
+                red.duty_u16(65025)
+                time.sleep(0.1)
+                red.duty_u16(0)
+                time.sleep(0.1)
+                red.duty_u16(0)
+            print("")
+            print("")
+            print("Current SSID & Password:")
+            print("--------------------------------")
+            print(f"SSID: {ssid}")
+            print(f"Password: {password}")
+            print("--------------------------------")
+            print("")
+            print("Would you like to update the password?")
+            update_credentials = yes_decider(yes_validator())
+            if update_credentials == "yes":
+                ssid = input("Enter your WiFi SSID: ")
+                password = input("Enter your WiFi password: ")
+                data["ssid"] = ssid
+                data["password"] = password
+                with open('wifipasswords.json', "w") as file:
+                    json.dump(data, file)
+                station.active(True)
+                station.connect(ssid, password)
+                lights_off()
+                pulse_direction = 10
+                max_retries = 50
+                while not station.isconnected() and max_retries > 0:
+                    brightness += pulse_direction * 1000
+                    if brightness >= 50000:
+                        brightness = 50000
+                        pulse_direction = -5
+                    elif brightness <= 0:
+                        brightness = 0
+                        pulse_direction = 5
+                    red.duty_u16(brightness)
+                    green.duty_u16(int(brightness*0.5))
+                    blue.duty_u16(0)
+                    max_retries -= 1
+                    time.sleep(0.1)
+            if update_credentials == "no":
+                print("Device will not work without WiFi.")
+                print("Powering Down.")
+                lights_off()
+                for i in range(2): 
+                    red.duty_u16(65025)
+                    time.sleep(0.1)
+                    red.duty_u16(0)
+                    time.sleep(0.1)
+                    red.duty_u16(0)
+                station.disconnect()
+                station.active(False)
+                lights_off()
+    except KeyError:
+        print("Connection Failed: No Valid Password Record")
+        print("")
+        print("")
+        print("Current SSID & Password:")
+        print("--------------------------------")
+        print(f"SSID: {ssid}")
+        print(f"Password: {password}")
+        print("--------------------------------")
+        print("")
+        print("Would you like to update the password?")
+        update_credentials = yes_decider(yes_validator())
+        if update_credentials == "yes":
+            ssid = input("Enter your WiFi SSID: ")
+            password = input("Enter your WiFi password: ")
+            data["ssid"] = ssid
+            data["password"] = password
+            with open('wifipasswords.json', "w") as file:
+                json.dump(data, file)
+            station.active(True)
+            station.connect(ssid, password)
+            lights_off()
+            pulse_direction = 10
+            max_retries = 50
+            while not station.isconnected() and max_retries > 0:
+                brightness += pulse_direction * 1000
+                if brightness >= 50000:
+                    brightness = 50000
+                    pulse_direction = -5
+                elif brightness <= 0:
+                    brightness = 0
+                    pulse_direction = 5
+                red.duty_u16(brightness)
+                green.duty_u16(int(brightness*0.5))
+                blue.duty_u16(0)
+                max_retries -= 1
+                time.sleep(0.1)
+        if update_credentials == "no":
+            print("Device will not work without WiFi.")
+            print("Powering Down.")
+            lights_off()
+            for i in range(2): 
+                red.duty_u16(65025)
+                time.sleep(0.1)
+                red.duty_u16(0)
+                time.sleep(0.1)
+                red.duty_u16(0)
+            station.disconnect()
+            station.active(False)
+            lights_off()
+    except Exception as e:
+        print("Connection Failed: An exception occurred -", e)
+
+station = network.WLAN(network.STA_IF)
+
+connect_wifi()
+        
 #------------------------------------FUNCTIONS---------------------------------------
 
 def set_brightness(brightnessChoice):
@@ -122,7 +252,7 @@ def set_brightness(brightnessChoice):
 
 def change_color(color):
     global current_color, isOn
-    if color in ["red", "green", "blue", "white", "purple", "orange", 'fade']:
+    if color in ["red", "green", "blue", "white", "purple", "orange", 'softwhite', 'fade']:
         isOn = True
         current_color = color
     elif color == "off":
@@ -136,7 +266,7 @@ def change_color(color):
 
 def fade_lights():
     global current_color
-    fade_speed = 0.5
+    fade_speed = 1
     color_values = list(range(0, 65026, 100))
     chunk_size = 10
     color_chunks = [color_values[i:i + chunk_size] for i in range(0, len(color_values), chunk_size)]
@@ -197,12 +327,15 @@ def update_LED():
             red.duty_u16(brightness)
             green.duty_u16(int(brightness*0.3))
             blue.duty_u16(0)
+        elif current_color == "softwhite":
+            red.duty_u16(int(brightness / 65025 * 65535))
+            green.duty_u16(int(brightness*0.7 / 65025 * 65535))
+            blue.duty_u16(int(brightness*0.6 / 65025 * 65535))
         elif current_color == "fade":
             red.duty_u16()
             green.duty_u16(0)
             blue.duty_u16()
             _thread.start_new_thread(fade_lights, ())
-
         else:
             red.duty_u16(65026)
             green.duty_u16(0)
@@ -293,6 +426,7 @@ def web_page():
                 <button class="button" onclick="change_color('purple')">Purple</button>
                 <button class="button" onclick="change_color('orange')">Orange</button>
                 <button class="button" onclick="change_color('white')">White</button>
+                <button class="button" onclick="change_color('softwhite')">Soft White</button>
                 <button class="button" onclick="change_color('fade')">Color Fade</button>
                 <br>
                 <h2>Brightness</h2>
@@ -366,8 +500,6 @@ def parse_request(request):
         return handle_led_off_request()
     return ''
 
-#---------------------------------MAIN LOOP FUNCT-------------------------------------
-
 def main_thread():
     while True:
         try:
@@ -393,6 +525,7 @@ def main_thread():
         except Exception as e:
             conn.close()
             print('Connection closed due to Exception: ', str(e))
+
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 
