@@ -15,13 +15,19 @@
 # malkasiangroup@gmail.com
 #
 #-----------------------------------CHANGELOG----------------------------------------
-print("CURRENT VERSION: 1.2.0 - Stable")
+print("CURRENT VERSION: 1.3.0 - dev PREVIEW - UNSTABLE")
 #
-# • Wifi password is now stored externally rather than hard-coded in the src code.
-# • If wifi password is incorrect, it will prompt the user to correct it. 
-# • Better error handling and recursive functions when handling user input in case of a typo.
-# • General bug fixes and better debugging (for you nerds).
+# • If the wifi files doesn't exist, when the device first boots, it will create the file empty file.
+# • Adding feature for multiple wireless networks to be stored. Device will scan through till it finds one and connects.
 # 
+# KNOWN ISSUES:
+# "Connection Failed: An exception occurred - list indices must be integers, not str"
+# Issue is raised when trying to update the json file.
+#
+# TO ADD THIS UPDATE
+# 1. Finish the wifi stuff
+# 2. Make some updates to the web GUI
+# 3. Look into creating additional pages fo different features/rooms. Doesn't need to be viewable.
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
@@ -39,7 +45,7 @@ from machine import Pin, PWM
 
 gc.collect()
 
-#------------------------------INITIAL VAR ASSIGNMENT------------------------------
+#----------------------------INITIAL VAR ASSIGNMENT/TASKS---------------------------
 
 # LED GPIO ASSIGNMENT (!!)
 red = PWM(Pin(0))
@@ -61,6 +67,14 @@ red.duty_u16(0)
 green.duty_u16(0)
 blue.duty_u16(0)
 
+try:
+    with open('wifipasswords.json', 'r') as file:
+        pass
+except OSError:
+    with open('wifipasswords.json', 'w') as file:
+        json.dump({"ssid": "", "password": ""}, file)
+
+
 # baton = _thread.allocate_lock()
 
 #------------------------------------WIRELESS CONNECTION-----------------------------
@@ -71,6 +85,7 @@ def yes_validator():
             userYesNo = input("Invalid entry: Please enter yes or no: ")
         else:
             return userYesNo
+
 
 def yes_decider(userYesNo):
     if userYesNo == 'yes':
@@ -84,6 +99,20 @@ def lights_off():
     green.duty_u16(0)
     blue.duty_u16(0)
 
+def load_wifi_credentials():
+    try:
+        with open('wifipasswords.json', 'r') as file:
+            networks = json.load(file)
+            if isinstance(networks, list) and all(isinstance(network, dict) and 'ssid' in network and 'password' in network for network in networks):
+                return networks
+            else:
+                raise ValueError("Invalid format in 'wifipasswords.json'")
+    except (OSError, ValueError):
+        # File does not exist or has invalid format it eill create a new file with an empty list.
+        with open('wifipasswords.json', 'w') as file:
+            json.dump([], file)
+        return []
+
 def update_wireless_password(ssid, password):
         global station
         lights_off()
@@ -91,14 +120,20 @@ def update_wireless_password(ssid, password):
         print("")
         print("")
         print("Current SSID & Password:")
-        print("--------------------------------")
-        print(f"SSID: {ssid}")
-        print(f"Password: {password}")
-        print("--------------------------------")
-        print("")
-        print("Would you like to update the password?")
-        update_credentials = yes_decider(yes_validator())
-        if update_credentials == "yes":
+        try:
+            with open('wifipasswords.json', "r") as file:
+                data = json.load(file)
+                for network in data:
+                    ssid = network['ssid']
+                    password = network['password']
+                    print("--------------------------------")
+                    print(f"SSID: {ssid}")
+                    print(f"Password: {password}")
+                    print("--------------------------------")
+        except OSError:
+            print("No existing network credentials.")
+        update_credentials = input("Would you like to add a new network or update a password? [new/update/exit]: ")
+        if update_credentials == "new": #THIS NEEDS DATA VALIDATION LIKE YES/NO FUNCTION SO THE USER CAN'T BREAK IT WITH A WRONG ANSWER
             new_ssid = input("Enter your WiFi SSID: ")
             new_password = input("Enter your WiFi password: ")
             data["ssid"] = new_ssid
@@ -109,7 +144,7 @@ def update_wireless_password(ssid, password):
             station.connect(ssid, password)
             lights_off()
             pulse_direction = 10
-            max_retries = 50
+            max_retries = 100
             brightness = 0
             while not station.isconnected() and max_retries > 0:
                 brightness += pulse_direction * 1000
@@ -125,7 +160,9 @@ def update_wireless_password(ssid, password):
                 max_retries -= 1
                 time.sleep(0.1)
             update_wireless_password(new_ssid, new_password)
-        if update_credentials == "no":
+        if update_credentials == "update":
+            update_wireless_password(new_ssid, new_password)
+        if update_credentials == "exit":
             print("Device will not work without WiFi.")
             print("Powering Down.")
             lights_off()
@@ -143,13 +180,17 @@ def connect_wifi():
     global ssid, password, station, pulse_direction, brightness, max_retries
     try:
         with open('wifipasswords.json') as file:
-            data = json.load(file)
-            ssid = data["ssid"]
-            password = data["password"]
-        station.active(True)
-        station.connect(ssid, password)
+            networks = load_wifi_credentials()
+       
+        for network in networks:
+            ssid = network["ssid"]
+            password = network["password"]
+            station.active(True)
+            station.connect(ssid, password)
+
         max_retries = 50
         pulse_direction = 10
+
         while not station.isconnected() and max_retries > 0:
             brightness += pulse_direction * 1000
             if brightness >= 50000:
@@ -176,7 +217,7 @@ def connect_wifi():
             time.sleep(2)
             lights_off()
         else:
-            print("Connection Failed: No specific reason identified")
+            print("Connection Failed: Maybe cheeck your connection or password?")
             red.duty_u16(0)
             green.duty_u16(0)
             blue.duty_u16(0)
@@ -187,15 +228,17 @@ def connect_wifi():
                 time.sleep(0.1)
                 red.duty_u16(0)
             update_wireless_password(ssid, password)
-
     except KeyError:
         print("Connection Failed: No Valid Password Record")
         update_wireless_password(ssid, password)
+        lights_off()
     except Exception as e:
         print("Connection Failed: An exception occurred -", e)
+        print("System will now shut down.")
+        lights_off()
+
 
 station = network.WLAN(network.STA_IF)
-
 connect_wifi()
         
 #------------------------------------FUNCTIONS---------------------------------------
