@@ -34,5 +34,8 @@ blue = PWM(Pin(2))
 4. I'd like to add a jack and/or bluetooth connectivity so that you can stream music from your device or through a Spotify API connection in the web app directly.
 5. Ability to have multiple devices in your home and to control them all from the web GUI.
 
+
 ## Final Comments
 I've designed 3D printed models to house the Pico and I will link the full tutorial at some point in the future (as well as how you can build your own and find supported LED lights).
+
+If you come across any bugs or experiecne odd behavior, please feel free to reach out and let me know.
