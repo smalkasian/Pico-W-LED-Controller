@@ -16,6 +16,7 @@
 #
 #-----------------------------------CHANGELOG----------------------------------------
 print("CURRENT VERSION: 1.2.0 - Stable")
+current_version = (1,2,0)
 #
 # • Wifi password is now stored externally rather than hard-coded in the src code.
 # • If wifi password is incorrect, it will prompt the user to correct it. 
