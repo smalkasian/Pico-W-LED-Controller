@@ -19,8 +19,6 @@ print("UNSTABLE - Developer Preview")
 def deliver_current_version():
     __version__ = (1,3,0)
     is_stable = False
-    local_version = '.'.join(str(i) for i in __version__)
-    print(f"CURRENT VERSION: {local_version}")
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
 # • If the wifi files doesn't exist, when the device first boots, it will create the file empty file.
@@ -28,10 +26,12 @@ def deliver_current_version():
 # • Web pages now pulls from remote file rather within the script.
 # • Changed the file name to PicoOS.py rather than main.py as this will no longer be the main.
 # • Moved all processes into their own functions (wifi, and main thread)
+
+# • The main program is now main.py. It boots from that and then loads the actual OS from picoOS.py and continues with normal processes.
 # KNOWN ISSUES:
-# "Connection Failed: An exception occurred - list indices must be integers, not str"
+# Text align issue when trying to pull in the index.html file causing it to fail.
 # Issue is raised when trying to update the json file. 
-# Haven't finished updating the or adding version tracking to the web page file so it cna be remotly updated.
+# Haven't finished updating the or adding version tracking to the web page file so it can be remotly updated.
 # OTA still doesn't work. As of now, the system will break.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
 # Also fails when trying to "update" the password.
@@ -49,6 +49,7 @@ import gc
 import _thread
 import json
 from machine import Pin, PWM
+from main import check_for_update
 
 gc.collect()
 
@@ -245,11 +246,6 @@ def connect_wifi():
     except Exception as e:
         print("Connection Failed: An exception occurred -", e)
 
-station = network.WLAN(network.STA_IF)
-connect_wifi()
-
-
-
 
 #------------------------------------FUNCTIONS---------------------------------------
 
@@ -369,7 +365,7 @@ def handle_led_off_request():
     current_color = "off"
     return change_color(current_color)
 
-def web_page(): 
+def web_page_BROKEN(): 
     try:
         with open('index.html', 'r') as file:
             html = file.read()
@@ -379,6 +375,158 @@ def web_page():
     except Exception as e:
         print('Error reading index.html:', e)
         return ''
+
+def web_page():
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Home LED Light Control</title>
+        <style>
+            body {
+                text-align: center;
+                font-family: Arial, sans-serif;
+            }
+            h1 {
+                margin-top: 20px;
+                font-size: 4vw;
+            }
+            h2 {
+                font-size: 3vw;
+                font-weight: bold;
+            }
+            h3 {
+                font-size: 3vw;
+                font-weight: normal;
+                
+            }
+            .button_container{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .button {
+                display: inline-block;
+                padding: 10px 20px;
+                margin: 10px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 2vw;
+                text-align: center;
+                text-decoration: none;
+                outline: none;
+                color: #000000;
+                background-color: #ccc;
+            }
+            .button:hover {
+                background-color: #999;
+            }
+            .on {
+                color: white;
+                background-color: rgb(48, 107, 255);
+            }
+            .off {
+                background-color: rgb(215, 215, 215);
+                color: #000;
+            }
+            .centered-text {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                padding-bottom: 50px;
+            }
+            .button-box {
+                margin: 10px;
+                padding: 10px 50px 20px 50px; /* top right bottom left */
+                background-color: white;
+                border-radius: 11px;
+                text-align: center;
+                box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
+                max-width: auto;
+            }
+            .version-update{
+                padding-top: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="button-container">
+            <div class="button-box">
+                <h2>Kitchen Lights</h2>
+                <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
+                <br>
+                <h3>Colors</h3>
+                <button class="button" onclick="change_color('red')">Red</button>
+                <button class="button" onclick="change_color('green')">Green</button>
+                <button class="button" onclick="change_color('blue')">Blue</button>
+                <button class="button" onclick="change_color('purple')">Purple</button>
+                <button class="button" onclick="change_color('orange')">Orange</button>
+                <button class="button" onclick="change_color('white')">White</button>
+                <button class="button" onclick="change_color('softwhite')">Soft White</button>
+                <button class="button" onclick="change_color('fade')">Color Fade</button>
+                <br>
+                <h3>Brightness</h3>
+                <button class="button" onclick="changeBrightness('bright')">Bright</button>
+                <button class="button" onclick="changeBrightness('medium')">Medium</button>
+                <button class="button" onclick="changeBrightness('dim')">Dim</button>
+            </div>
+        </div>
+        <div class = "version-update">
+            <p>CURRENT VERSION: {{ current_version }}</p>
+            <button class="button" onclick="updateSoftware('update_software')">Update Software</button>
+        </div>
+        <script>
+            var isOn = false;
+            var current_color = "white";
+            
+            function toggleLED() {
+                var button = document.getElementById("toggleButton");
+                
+                if (isOn) {
+                    button.innerHTML = "OFF";
+                    button.className = "button off";
+                    isOn = false;
+                    change_color('off');
+                    makeRequest('/led_off');
+                } else {
+                    button.innerHTML = "ON";
+                    button.className = "button on";
+                    isOn = true;
+                    change_color(current_color);
+                }
+            }
+            
+            function change_color(color) {
+                console.log("Selected color: " + color);
+                if (isOn) {
+                    makeRequest('/change_color?color=' + color);
+                }
+            }
+            
+            function changeBrightness(brightnessChoice) {
+                console.log("Selected brightness: " + brightnessChoice);
+                if (isOn) {
+                    makeRequest('/change_brightness?brightness=' + brightnessChoice);
+                }
+            }
+
+            function makeRequest(url) {
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", url, true);
+                xhr.send();
+            }
+        </script>
+    </body>
+    </html>
+    """
+    html = html.replace("{{ current_version }}", str(deliver_current_version()))
+    html = html.replace("{{ update_message }}", str(check_for_update()))
+        
+    return html
+
 
 def parse_request(request):
     request = str(request)
@@ -396,7 +544,7 @@ def parse_request(request):
         return handle_led_off_request()
     return ''
 
-def main_thread():
+def pico_os_main():
     while True:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -425,34 +573,35 @@ def main_thread():
         except Exception as e:
             conn.close()
             print('Connection closed due to Exception: ', str(e))
+        except KeyboardInterrupt:
+            print('KeyboardInterrupt: Stopping the program...')
+            red.duty_u16(0)
+            green.duty_u16(0)
+            blue.duty_u16(0)
+            for i in range(5): 
+                red.duty_u16(65025)
+                green.duty_u16(65025)
+                time.sleep(0.1)
+                red.duty_u16(0)
+                green.duty_u16(0)
+                time.sleep(0.1)
+                red.duty_u16(0)
+                green.duty_u16(0)
+            station = network.WLAN(network.STA_IF)
+            station.disconnect()
+            station.active(False)
+            print("System Disconneted")
+            s.close()
+        finally:
+            s.close()
+            break
 
+    
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 
-def pico_os_main():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('', 80))
-    s.listen(5)
-    try:
-        while True:
-            main_thread()
-    except KeyboardInterrupt:
-        print('KeyboardInterrupt: Stopping the program...')
-        red.duty_u16(0)
-        green.duty_u16(0)
-        blue.duty_u16(0)
-        for i in range(5): 
-            red.duty_u16(65025)
-            green.duty_u16(65025)
-            time.sleep(0.1)
-            red.duty_u16(0)
-            green.duty_u16(0)
-            time.sleep(0.1)
-            red.duty_u16(0)
-            green.duty_u16(0)
-        station.disconnect()
-        station.active(False)
-        print("System Disconneted")
-    finally:
-        s.close()
+gc.collect()
+connect_wifi()
+pico_os_main()
+
+
