@@ -9,7 +9,23 @@
         }
         h1 {
             margin-top: 20px;
+			font-size: 4vw;
         }
+		h2 {
+			font-size: 3vw;
+			font-weight: bold;
+		}
+		h3 {
+			font-size: 3vw;
+			font-weight: normal;
+			
+		}
+		.button_container{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+		}
         .button {
             display: inline-block;
             padding: 10px 20px;
@@ -17,7 +33,7 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 2vw;
             text-align: center;
             text-decoration: none;
             outline: none;
@@ -42,10 +58,6 @@
             text-align: center;
             padding-bottom: 50px;
         }
-        .button-container {
-            display: flex;
-            justify-content: center;
-        }
         .button-box {
             margin: 10px;
             padding: 10px 50px 20px 50px; /* top right bottom left */
@@ -55,15 +67,18 @@
             box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
             max-width: auto;
         }
+		.version-update{
+			padding-top: 50px;
+		}
     </style>
 </head>
 <body>
     <div class="button-container">
         <div class="button-box">
-            <h1>Kitchen Lights</h1>
+            <h2>Kitchen Lights</h2>
             <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
             <br>
-            <h2>Colors</h2>
+            <h3>Colors</h3>
             <button class="button" onclick="change_color('red')">Red</button>
             <button class="button" onclick="change_color('green')">Green</button>
             <button class="button" onclick="change_color('blue')">Blue</button>
@@ -73,13 +88,17 @@
             <button class="button" onclick="change_color('softwhite')">Soft White</button>
             <button class="button" onclick="change_color('fade')">Color Fade</button>
             <br>
-            <h2>Brightness</h2>
+            <h3>Brightness</h3>
             <button class="button" onclick="changeBrightness('bright')">Bright</button>
             <button class="button" onclick="changeBrightness('medium')">Medium</button>
             <button class="button" onclick="changeBrightness('dim')">Dim</button>
         </div>
     </div>
-    <p> VERSION: 1.1 </p>
+	<div class = "version-update">
+		<p>CURRENT VERSION: 1.1 </p>
+		<p>There's a software update available! Would you like to update to: __VERSION__?</p>
+		<button class="button" onclick="updateSoftware('update_software')">Update Software</button>
+	</div>
     <script>
         var isOn = false;
         var current_color = "white";
