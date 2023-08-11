@@ -22,12 +22,14 @@ status = print("UNSTABLE - Developer Preview")
 # • Adding feature for multiple wireless networks to be stored. Device will scan through till it finds one and connects.
 # • Web pages now pulls from remote file rather within the script.
 # • Changed the file name to PicoOS.py rather than main.py as this will no longer be the main.
-# • 
+# • Moved all processes into their own functions (wifi, and main thread)
 # KNOWN ISSUES:
 # "Connection Failed: An exception occurred - list indices must be integers, not str"
 # Issue is raised when trying to update the json file. 
 # Haven't finished updating the or adding version tracking to the web page file so it cna be remotly updated.
 # OTA still doesn't work. As of now, the system will break.
+# Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
+# Also fails when trying to "update" the password.
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
@@ -67,30 +69,43 @@ red.duty_u16(0)
 green.duty_u16(0)
 blue.duty_u16(0)
 
-try:
-    with open('wifipasswords.json', 'r') as file:
-        pass
-except OSError:
-    with open('wifipasswords.json', 'w') as file:
-        json.dump({"ssid": "", "password": ""}, file)
-
 # baton = _thread.allocate_lock()
 
 #------------------------------------WIRELESS CONNECTION-----------------------------
 
 def yes_validator():
-        userYesNo = input("Enter yes or no: ")
-        while userYesNo not in ['yes', 'no']:
-            userYesNo = input("Invalid entry: Please enter yes or no: ")
-        else:
+    userYesNo = input("[yes/no]: ")
+    while userYesNo.lower() not in ['yes', 'no']:
+        userYesNo = input("Invalid entry: Please enter yes or no: ") #MAKE IT CHANGE THE INPUT TO .lower
+    else:
+        if userYesNo == 'yes':
+            print("")
             return userYesNo
+        elif userYesNo == 'no':
+            return userYesNo
+        
+def number_option_validator():
+    user_choice = input("Choose a network -- [1] [2] [3] [4] [5]: ")
+    while user_choice not in ["1", "2", "3", "4", "5"]:
+        user_choice = input("Invalid entry: Please enter a valid number: ")
+    else:
+        if user_choice == '1':
+            print("")
+            return 0
+        elif user_choice == '2':
+            return 1
+        elif user_choice == '3':
+            print("")
+            return 2
+        elif user_choice == '4':
+            return 3
+        if user_choice == '5':
+            print("")
+            return 4
 
-def yes_decider(userYesNo):
-    if userYesNo == 'yes':
-        print("")
-        return userYesNo
-    elif userYesNo == 'no':
-        return userYesNo
+
+
+
 
 def lights_off():
     red.duty_u16(0)
@@ -101,48 +116,38 @@ def load_wifi_credentials():
     try:
         with open('wifipasswords.json', 'r') as file:
             networks = json.load(file)
+            #data = data_list[0] AUTOMATICALLY CHOOSE THE FIRST NETWORK IN THE LIST
             if isinstance(networks, list) and all(isinstance(network, dict) and 'ssid' in network and 'password' in network for network in networks):
                 return networks
             else:
-                raise ValueError("Invalid format in 'wifipasswords.json'")
+                raise ValueError("Invalid format or no passwords found in 'wifipasswords.json'")
     except (OSError, ValueError):
-        # File does not exist or has invalid format it eill create a new file with an empty list.
+        default_network = [{"ssid": "", "password": ""}]
         with open('wifipasswords.json', 'w') as file:
-            json.dump([], file)
+            json.dump(default_network, file)
         return []
 
-def update_wireless_password(ssid, password):
-        global station
-        lights_off()
-        red.duty_u16(50000)
-        print("")
-        print("")
-        print("Current SSID & Password:")
-        try:
-            with open('wifipasswords.json', "r") as file:
-                data = json.load(file)
-                for network in data:
-                    ssid = network['ssid']
-                    password = network['password']
-                    print("--------------------------------")
-                    print(f"SSID: {ssid}")
-                    print(f"Password: {password}")
-                    print("--------------------------------")
-        except OSError:
-            print("No existing network credentials.")
-        update_credentials = input("Would you like to add a new network or update a password? [new/update/exit]: ")
-        if update_credentials == "new": #THIS NEEDS DATA VALIDATION LIKE YES/NO FUNCTION SO THE USER CAN'T BREAK IT WITH A WRONG ANSWER
-            new_ssid = input("Enter your WiFi SSID: ")
-            new_password = input("Enter your WiFi password: ")
-            data["ssid"] = new_ssid
-            data["password"] = new_password
-            with open('wifipasswords.json', "w") as file:
-                json.dump(data, file)
+def connect_wifi():
+    try:
+        networks = load_wifi_credentials()
+        if not networks or not any(network["ssid"] and network["password"] for network in networks):
+            print("No valid Wi-Fi networks found.")
+            return
+
+        station = network.WLAN(network.STA_IF)
+        for network_info in networks:
+            ssid = network_info["ssid"]
+            password = network_info["password"]
+
+            if not ssid or not password:
+                print("Invalid Wi-Fi credentials found. Skipping this network.")
+                continue
+
             station.active(True)
             station.connect(ssid, password)
-            lights_off()
+
+            max_retries = 50
             pulse_direction = 10
-            max_retries = 100
             brightness = 0
             while not station.isconnected() and max_retries > 0:
                 brightness += pulse_direction * 1000
@@ -153,14 +158,84 @@ def update_wireless_password(ssid, password):
                     brightness = 0
                     pulse_direction = 5
                 red.duty_u16(brightness)
-                green.duty_u16(int(brightness*0.5))
+                green.duty_u16(int(brightness * 0.5))
                 blue.duty_u16(0)
                 max_retries -= 1
                 time.sleep(0.1)
-            update_wireless_password(new_ssid, new_password)
-        if update_credentials == "update":
-            update_wireless_password(new_ssid, new_password)
-        if update_credentials == "exit":
+            if station.isconnected():
+                lights_off()
+                print('Connection successful!')
+                print(station.ifconfig())
+                for i in range(10):
+                    green.duty_u16(65025)
+                    time.sleep(0.1)
+                    green.duty_u16(0)
+                    time.sleep(0.1)
+                green.duty_u16(65025)
+                time.sleep(2)
+                lights_off()
+                return
+            else:
+                print(f"Connection to {ssid} failed.")
+        # If no successful connection is made to any network
+        print("Connection Failed: Unable to connect to any Wi-Fi network.")
+        red.duty_u16(0)
+        green.duty_u16(0)
+        blue.duty_u16(0)
+        for i in range(5):
+            red.duty_u16(65025)
+            time.sleep(0.1)
+            red.duty_u16(0)
+            time.sleep(0.1)
+            red.duty_u16(0)
+        lights_off()
+        red.duty_u16(50000)
+        update_wireless_password()
+    except KeyError:
+        print("Connection Failed: No Valid Password Record")
+        update_wireless_password()
+        lights_off()
+    except Exception as e:
+        print("Connection Failed: An exception occurred -", e)
+        print("System will now shut down.")
+        lights_off()
+
+def update_wireless_password(): 
+        try:
+            with open('wifipasswords.json', 'r') as file:
+                data_list = json.load(file)
+        finally:
+            for i, data in enumerate(data_list):
+                print(f"Network {i + 1}:")
+                print(f"SSID: {data['ssid']}")
+                print(f"Password: {data['password']}")
+                print("--------------------------------")
+            print("Which network do you want to connect to?")
+            choose_index = number_option_validator()
+            connect_wifi()
+        try:
+            print("Do you want to update the password?")
+            update_credentials = yes_validator()
+        except KeyError:
+            print("No exisiting wifi credentials.")
+            print("Would you like to add a new network?")
+            update_credentials = yes_validator()
+        except OSError:
+            print("A password might be incorrect.")
+            print("Would you like to add a new network?")
+            update_credentials = yes_validator()
+        #It's not triggering a traceback error, so you need it to update the password
+        #If in the event it doesn't trigger a traceback.
+        if update_credentials == "yes":
+            new_ssid = input("Enter your WiFi SSID: ")
+            new_password = input("Enter your WiFi password: ")
+            data_list[choose_index]["ssid"] = new_ssid
+            data_list[choose_index]["password"] = new_password
+            with open('wifipasswords.json', "w") as file:
+                json.dump(data, file)
+            lights_off()
+            connect_wifi()
+        if update_credentials == "no":
             print("Device will not work without WiFi.")
             print("Powering Down.")
             lights_off()
@@ -170,74 +245,7 @@ def update_wireless_password(ssid, password):
                 red.duty_u16(0)
                 time.sleep(0.1)
                 red.duty_u16(0)
-            station.disconnect()
-            station.active(False)
             lights_off()
-
-def connect_wifi():
-    global ssid, password, station, pulse_direction, brightness, max_retries
-    try:
-        with open('wifipasswords.json') as file:
-            networks = load_wifi_credentials()
-       
-        for network in networks:
-            ssid = network["ssid"]
-            password = network["password"]
-            station.active(True)
-            station.connect(ssid, password)
-
-        max_retries = 50
-        pulse_direction = 10
-
-        while not station.isconnected() and max_retries > 0:
-            brightness += pulse_direction * 1000
-            if brightness >= 50000:
-                brightness = 50000
-                pulse_direction = -5
-            elif brightness <= 0:
-                brightness = 0
-                pulse_direction = 5
-            red.duty_u16(brightness)
-            green.duty_u16(int(brightness * 0.5))
-            blue.duty_u16(0)
-            max_retries -= 1
-            time.sleep(0.1)
-        if station.isconnected():
-            lights_off()
-            print('Connection successful!')
-            print(station.ifconfig())
-            for i in range(10):
-                green.duty_u16(65025)
-                time.sleep(0.1)
-                green.duty_u16(0)
-                time.sleep(0.1)
-            green.duty_u16(65025)
-            time.sleep(2)
-            lights_off()
-        else:
-            print("Connection Failed: Maybe cheeck your connection or password?")
-            red.duty_u16(0)
-            green.duty_u16(0)
-            blue.duty_u16(0)
-            for i in range(5):
-                red.duty_u16(65025)
-                time.sleep(0.1)
-                red.duty_u16(0)
-                time.sleep(0.1)
-                red.duty_u16(0)
-            update_wireless_password(ssid, password)
-    except KeyError:
-        print("Connection Failed: No Valid Password Record")
-        update_wireless_password(ssid, password)
-        lights_off()
-    except Exception as e:
-        print("Connection Failed: An exception occurred -", e)
-        print("System will now shut down.")
-        lights_off()
-
-
-station = network.WLAN(network.STA_IF)
-connect_wifi()
         
 #------------------------------------FUNCTIONS---------------------------------------
 def deliver_current_version(__version__):
@@ -361,7 +369,7 @@ def handle_led_off_request():
     current_color = "off"
     return change_color(current_color)
 
-def web_page_FUTURE_UPDATE_DO_NOT_CALL(): 
+def web_page(): 
     try:
         with open('index.html', 'r') as file:
             html = file.read()
@@ -371,138 +379,6 @@ def web_page_FUTURE_UPDATE_DO_NOT_CALL():
     except Exception as e:
         print('Error reading index.html:', e)
         return ''
-    # NOTES: Will pull the web page locally from a file on the device rather than the src code.
-    # Implementation will depend on OTA functionality. Goal is to make the web page update independantly from the main code.
-
-def web_page():
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Home LED Light Control</title>
-        <style>
-            body {
-                text-align: center;
-                font-family: Arial, sans-serif;
-            }
-            h1 {
-                margin-top: 20px;
-            }
-            .button {
-                display: inline-block;
-                padding: 10px 20px;
-                margin: 10px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 16px;
-                text-align: center;
-                text-decoration: none;
-                outline: none;
-                color: #000000;
-                background-color: #ccc;
-            }
-            .button:hover {
-                background-color: #999;
-            }
-            .on {
-                color: white;
-                background-color: rgb(48, 107, 255);
-            }
-            .off {
-                background-color: rgb(215, 215, 215);
-                color: #000;
-            }
-            .centered-text {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                text-align: center;
-                padding-bottom: 50px;
-            }
-            .button-container {
-                display: flex;
-                justify-content: center;
-            }
-            .button-box {
-                margin: 10px;
-                padding: 10px 50px 20px 50px; /* top right bottom left */
-                background-color: white;
-                border-radius: 11px;
-                text-align: center;
-                box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
-                max-width: auto;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="button-container">
-            <div class="button-box">
-                <h1>Kitchen Lights</h1>
-                <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
-                <br>
-                <h2>Colors</h2>
-                <button class="button" onclick="change_color('red')">Red</button>
-                <button class="button" onclick="change_color('green')">Green</button>
-                <button class="button" onclick="change_color('blue')">Blue</button>
-                <button class="button" onclick="change_color('purple')">Purple</button>
-                <button class="button" onclick="change_color('orange')">Orange</button>
-                <button class="button" onclick="change_color('white')">White</button>
-                <button class="button" onclick="change_color('softwhite')">Soft White</button>
-                <button class="button" onclick="change_color('fade')">Color Fade</button>
-                <br>
-                <h2>Brightness</h2>
-                <button class="button" onclick="changeBrightness('bright')">Bright</button>
-                <button class="button" onclick="changeBrightness('medium')">Medium</button>
-                <button class="button" onclick="changeBrightness('dim')">Dim</button>
-            </div>
-        </div>
-        <p> VERSION: 1.2 </p>
-        <script>
-            var isOn = false;
-            var current_color = "white";
-            
-            function toggleLED() {
-                var button = document.getElementById("toggleButton");
-                
-                if (isOn) {
-                    button.innerHTML = "OFF";
-                    button.className = "button off";
-                    isOn = false;
-                    change_color('off');
-                    makeRequest('/led_off');
-                } else {
-                    button.innerHTML = "ON";
-                    button.className = "button on";
-                    isOn = true;
-                    change_color(current_color);
-                }
-            }
-            
-            function change_color(color) {
-                console.log("Selected color: " + color);
-                if (isOn) {
-                    makeRequest('/change_color?color=' + color);
-                }
-            }
-            
-            function changeBrightness(brightnessChoice) {
-                console.log("Selected brightness: " + brightnessChoice);
-                if (isOn) {
-                    makeRequest('/change_brightness?brightness=' + brightnessChoice);
-                }
-            }
-
-            function makeRequest(url) {
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", url, true);
-                xhr.send();
-            }
-        </script>
-    </body>
-    </html>
-    """
-    return html
 
 def parse_request(request):
     request = str(request)
@@ -550,30 +426,32 @@ def main_thread():
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(('', 80))
-s.listen(5)
+connect_wifi()
 
-try:
-    while True:
-        main_thread()
-except KeyboardInterrupt:
-    print('KeyboardInterrupt: Stopping the program...')
-    red.duty_u16(0)
-    green.duty_u16(0)
-    blue.duty_u16(0)
-    for i in range(5): 
-        red.duty_u16(65025)
-        green.duty_u16(65025)
-        time.sleep(0.1)
+def pico_os_main():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', 80))
+    s.listen(5)
+    try:
+        while True:
+            main_thread()
+    except KeyboardInterrupt:
+        print('KeyboardInterrupt: Stopping the program...')
         red.duty_u16(0)
         green.duty_u16(0)
-        time.sleep(0.1)
-        red.duty_u16(0)
-        green.duty_u16(0)
-    station.disconnect()
-    station.active(False)
-    print("System Disconneted")
-finally:
-    s.close()
+        blue.duty_u16(0)
+        for i in range(5): 
+            red.duty_u16(65025)
+            green.duty_u16(65025)
+            time.sleep(0.1)
+            red.duty_u16(0)
+            green.duty_u16(0)
+            time.sleep(0.1)
+            red.duty_u16(0)
+            green.duty_u16(0)
+        station.disconnect()
+        station.active(False)
+        print("System Disconneted")
+    finally:
+        s.close()
