@@ -16,6 +16,7 @@
 #
 #-----------------------------------CHANGELOG----------------------------------------
 print("CURRENT VERSION: 1.3.0 - dev PREVIEW - UNSTABLE")
+is_stable = False
 #
 # • If the wifi files doesn't exist, when the device first boots, it will create the file empty file.
 # • Adding feature for multiple wireless networks to be stored. Device will scan through till it finds one and connects.

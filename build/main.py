@@ -18,6 +18,7 @@ connect_wifi()
 #     print(f"CURRENT VERSION: {local_version}")
 #     return __version__
 
+#Check IF STABLE TRUE OR FALSE! Just another check after update has been determined it DOES need to be updated.
 
 # local_version = deliver_current_version(__version__)
 remote_version_url = 'https://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
