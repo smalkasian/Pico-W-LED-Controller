@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------------------
 print("Stable - Developer Preview")
 def deliver_current_version():
-    __version__ = (2,0,0)
+    __version__ = (1,3,0)
     is_stable = False
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
@@ -27,7 +27,8 @@ def deliver_current_version():
 # • Changed the file name to PicoOS.py rather than main.py as this will no longer be the main.
 # • Moved all processes into their own functions (wifi, and main thread)
 # • The main program is now main.py. It boots from that and then loads the actual OS from picoOS.py and continues with normal processes.
-# • OS now supports OTA updates.
+# • OS now supports OTA updates
+
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
