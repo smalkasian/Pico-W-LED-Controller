@@ -1,144 +1,143 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <title>Home LED Light Control</title>
-    <style>
-        body {
-            text-align: center;
-            font-family: Arial, sans-serif;
-        }
-        h1 {
-            margin-top: 20px;
-			font-size: 4vw;
-        }
-		h2 {
-			font-size: 3vw;
-			font-weight: bold;
-		}
-		h3 {
-			font-size: 3vw;
-			font-weight: normal;
-			
-		}
-		.button_container{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-		}
-        .button {
-            display: inline-block;
-            padding: 10px 20px;
-            margin: 10px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 2vw;
-            text-align: center;
-            text-decoration: none;
-            outline: none;
-            color: #000000;
-            background-color: #ccc;
-        }
-        .button:hover {
-            background-color: #999;
-        }
-        .on {
-            color: white;
-            background-color: rgb(48, 107, 255);
-        }
-        .off {
-            background-color: rgb(215, 215, 215);
-            color: #000;
-        }
-        .centered-text {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding-bottom: 50px;
-        }
-        .button-box {
-            margin: 10px;
-            padding: 10px 50px 20px 50px; /* top right bottom left */
-            background-color: white;
-            border-radius: 11px;
-            text-align: center;
-            box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
-            max-width: auto;
-        }
-		.version-update{
-			padding-top: 50px;
-		}
-    </style>
-</head>
-<body>
-    <div class="button-container">
-        <div class="button-box">
-            <h2>Kitchen Lights</h2>
-            <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
-            <br>
-            <h3>Colors</h3>
-            <button class="button" onclick="change_color('red')">Red</button>
-            <button class="button" onclick="change_color('green')">Green</button>
-            <button class="button" onclick="change_color('blue')">Blue</button>
-            <button class="button" onclick="change_color('purple')">Purple</button>
-            <button class="button" onclick="change_color('orange')">Orange</button>
-            <button class="button" onclick="change_color('white')">White</button>
-            <button class="button" onclick="change_color('softwhite')">Soft White</button>
-            <button class="button" onclick="change_color('fade')">Color Fade</button>
-            <br>
-            <h3>Brightness</h3>
-            <button class="button" onclick="changeBrightness('bright')">Bright</button>
-            <button class="button" onclick="changeBrightness('medium')">Medium</button>
-            <button class="button" onclick="changeBrightness('dim')">Dim</button>
+    <html>
+    <head>
+        <title>Home LED Light Control</title>
+        <style>
+            .body {
+                text-align: center;
+                font-family: Arial, sans-serif;
+            }
+            .h1 {
+                margin-top: 20px;
+                font-size: 4vw;
+            }
+            .h2 {
+                font-size: 3vw;
+                font-weight: bold;
+            }
+            .h3 {
+                font-size: 3vw;
+                font-weight: normal;
+                
+            }
+            .button_container{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .button {
+                display: inline-block;
+                padding: 10px 20px;
+                margin: 10px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 2vw;
+                text-align: center;
+                text-decoration: none;
+                outline: none;
+                color: #000000;
+                background-color: #ccc;
+            }
+            .button:hover {
+                background-color: #999;
+            }
+            .on {
+                color: white;
+                background-color: rgb(48, 107, 255);
+            }
+            .off {
+                background-color: rgb(215, 215, 215);
+                color: #000;
+            }
+            .centered-text {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                padding-bottom: 50px;
+            }
+            .button-box {
+                margin: 10px;
+                padding: 10px 50px 20px 50px; /* top right bottom left */
+                background-color: white;
+                border-radius: 11px;
+                text-align: center;
+                box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
+                max-width: auto;
+            }
+            .version-update{
+                padding-top: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="button-container">
+            <div class="button-box">
+                <h2>Kitchen Lights</h2>
+                <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
+                <br>
+                <h3>Colors</h3>
+                <button class="button" onclick="change_color('red')">Red</button>
+                <button class="button" onclick="change_color('green')">Green</button>
+                <button class="button" onclick="change_color('blue')">Blue</button>
+                <button class="button" onclick="change_color('purple')">Purple</button>
+                <button class="button" onclick="change_color('orange')">Orange</button>
+                <button class="button" onclick="change_color('white')">White</button>
+                <button class="button" onclick="change_color('softwhite')">Soft White</button>
+                <button class="button" onclick="change_color('fade')">Color Fade</button>
+                <br>
+                <h3>Brightness</h3>
+                <button class="button" onclick="changeBrightness('bright')">Bright</button>
+                <button class="button" onclick="changeBrightness('medium')">Medium</button>
+                <button class="button" onclick="changeBrightness('dim')">Dim</button>
+            </div>
         </div>
-    </div>
-	<div class = "version-update">
-		<p>CURRENT VERSION: 1.1 </p>
-		<p>There's a software update available! Would you like to update to: __VERSION__?</p>
-		<button class="button" onclick="updateSoftware('update_software')">Update Software</button>
-	</div>
-    <script>
-        var isOn = false;
-        var current_color = "white";
-        
-        function toggleLED() {
-            var button = document.getElementById("toggleButton");
+        <div class = "version-update">
+            <p>CURRENT VERSION: {{ current_version }}</p>
+            <button class="button" onclick="updateSoftware('update_software')">Update Software</button>
+        </div>
+        <script>
+            var isOn = false;
+            var current_color = "white";
             
-            if (isOn) {
-                button.innerHTML = "OFF";
-                button.className = "button off";
-                isOn = false;
-                change_color('off');
-                makeRequest('/led_off');
-            } else {
-                button.innerHTML = "ON";
-                button.className = "button on";
-                isOn = true;
-                change_color(current_color);
+            function toggleLED() {
+                var button = document.getElementById("toggleButton");
+                
+                if (isOn) {
+                    button.innerHTML = "OFF";
+                    button.className = "button off";
+                    isOn = false;
+                    change_color('off');
+                    makeRequest('/led_off');
+                } else {
+                    button.innerHTML = "ON";
+                    button.className = "button on";
+                    isOn = true;
+                    change_color(current_color);
+                }
             }
-        }
-        
-        function change_color(color) {
-            console.log("Selected color: " + color);
-            if (isOn) {
-                makeRequest('/change_color?color=' + color);
+            
+            function change_color(color) {
+                console.log("Selected color: " + color);
+                if (isOn) {
+                    makeRequest('/change_color?color=' + color);
+                }
             }
-        }
-        
-        function changeBrightness(brightnessChoice) {
-            console.log("Selected brightness: " + brightnessChoice);
-            if (isOn) {
-                makeRequest('/change_brightness?brightness=' + brightnessChoice);
+            
+            function changeBrightness(brightnessChoice) {
+                console.log("Selected brightness: " + brightnessChoice);
+                if (isOn) {
+                    makeRequest('/change_brightness?brightness=' + brightnessChoice);
+                }
             }
-        }
 
-        function makeRequest(url) {
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", url, true);
-            xhr.send();
-        }
-    </script>
-</body>
+            function makeRequest(url) {
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", url, true);
+                xhr.send();
+            }
+        </script>
+    </body>
 </html>

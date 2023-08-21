@@ -26,36 +26,34 @@ def deliver_current_version():
 # • Web pages now pulls from remote file rather within the script.
 # • Changed the file name to PicoOS.py rather than main.py as this will no longer be the main.
 # • Moved all processes into their own functions (wifi, and main thread)
-
 # • The main program is now main.py. It boots from that and then loads the actual OS from picoOS.py and continues with normal processes.
+
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
-# Issue is raised when trying to update the json file. 
-# Haven't finished updating the or adding version tracking to the web page file so it can be remotly updated.
-# OTA still doesn't work. As of now, the system will break.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
-# Also fails when trying to "update" the password.
+# 
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
     import usocket as socket
 except ImportError:
     import socket
-
+import urequests
 import time
 import network
 import errno
 import gc
 import _thread
 import json
+import re
 from machine import Pin, PWM
-from main import check_for_update
+import uos
+import machine
 
-gc.collect()
 
 #----------------------------INITIAL VAR ASSIGNMENT/TASKS---------------------------
 
-# LED GPIO ASSIGNMENT (!!)
+# LED GPIO ASSIGNMENT (!!
 red = PWM(Pin(0))
 green = PWM(Pin(1))
 blue = PWM(Pin(2))
@@ -64,16 +62,8 @@ red.freq(1000)
 green.freq(1000)
 blue.freq(1000)
 
-brightness = 0
 isOn = False
-current_color = "white"
-ssid = ''
-password = ''
-data = {}
-
-red.duty_u16(0)
-green.duty_u16(0)
-blue.duty_u16(0)
+brightness = 0
 
 # baton = _thread.allocate_lock()
 
@@ -130,7 +120,7 @@ def load_wifi_credentials():
         return []
 
 def update_wireless_password(ssid, password):
-        global station
+        station = network.WLAN(network.STA_IF)
         lights_off()
         red.duty_u16(50000)
         print("")
@@ -186,12 +176,6 @@ def update_wireless_password(ssid, password):
 
 def connect_wifi():
     station = network.WLAN(network.STA_IF)
-    red = PWM(Pin(0))
-    green = PWM(Pin(1))
-    blue = PWM(Pin(2))
-    red.freq(1000)
-    green.freq(1000)
-    blue.freq(1000)
     try:
         with open('wifipasswords.json') as file:
             data = json.load(file)
@@ -246,8 +230,100 @@ def connect_wifi():
     except Exception as e:
         print("Connection Failed: An exception occurred -", e)
 
-
 #------------------------------------FUNCTIONS---------------------------------------
+
+def check_remote_version():
+    try:
+        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        response = urequests.get(remote_version_url, headers=headers)
+        print("Status Code:", response.status_code)
+        if response.status_code == 200:
+            match = re.search(r'__version__ = \((\d+,\d+,\d+)\)', response.text)
+            if match:
+                version_string = match.group(1)  # Extract the version string
+                version_components = tuple(map(int, version_string.split(',')))
+                return version_components
+    except Exception as e:
+        print("Error:", e)
+    return None
+
+def check_for_update():
+    try:
+        local_version = deliver_current_version()
+        remote_version = check_remote_version()
+        if remote_version is None:
+            return "Failed to fetch remote version. Try again in a little bit."
+        elif remote_version == local_version:
+            update_message = f"{local_version} is the current version. You are up to date!"
+        elif remote_version > local_version:
+            update_message = f"Version {remote_version} is available."
+        elif remote_version != local_version:
+            update_message = "Something went wrong while checking for the update."
+        else:
+           update_message = "FAILED TO GET UPDATE"
+    except Exception as e:
+        update_message = "FAILED TO GET UPDATE"
+        print("Error:", e)
+    return update_message
+        
+def update_software():
+    update_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
+    temp_file = "PicoOS_temp.py"
+    backup_file = "PicoOS_backup.py"
+    try:
+        response = urequests.get(update_url)
+        if response.status_code == 200:
+            update_content = response.text()
+            with open(temp_file, "w") as f:
+                f.write(update_content)
+            uos.rename("PicoOS.py", backup_file) # Backup the current OS
+            uos.rename(temp_file, "PicoOS.py") # Replace with downloaded file  
+            update_message = "Update completed successfully."
+            return update_message
+            machine.reset
+        else:
+            update_message = "Update Failed!"
+            return update_message
+    except Exception as e:
+        if uos.path.exists(backup_file):
+            uos.rename(backup_file, "PicoOS.py")
+            update_message = ("Update Failed. Old OS restored. Error: ", e)
+        return update_message 
+
+def software_update_request():
+    try:
+        local_version = deliver_current_version()
+        remote_version = check_remote_version()
+        if remote_version is None:
+            update_message = "Failed to fetch remote version."
+        elif remote_version == local_version:
+            update_message = (f"{local_version} is the current version. No update needed!")
+        elif remote_version > local_version:
+            update_message = "Updating software. Please wait."
+            update_software()
+    except Exception as e:
+        update_message = "FAILED TO GET UPDATE"
+        print("Error:", e)
+    return update_message
+
+def generate_updated_web_page():
+    html_template = web_page()
+    try:
+        current_version = deliver_current_version()
+        update_message = check_for_update()
+
+        updated_html = html_template.replace("{{ current_version }}", str(current_version) if current_version else "Unknown")
+        updated_html = updated_html.replace("{{ update_message }}", str(update_message))
+
+    except OSError as e:
+        if e.errno == errno.ENOMEM:
+            print("System out of memory")
+            updated_html = "Error: System out of memory"  # Or provide some default/fallback HTML here
+        else:
+            print("Error:", e)
+            updated_html = "Error: " + str(e)  # Or provide some default/fallback HTML here
+    return updated_html
 
 def set_brightness(brightnessChoice):
     global brightness
@@ -316,6 +392,10 @@ def fade_lights():
 
 def update_LED(): 
     if isOn:
+        brightness = 0
+        if brightness == 0:
+            brightness = 65025
+        print(f"Updating LED. Color: {current_color}, Brightness: {brightness}, isOn: {isOn}")
         if current_color == "red":
             red.duty_u16(brightness)
             green.duty_u16(0)
@@ -345,9 +425,9 @@ def update_LED():
             green.duty_u16(int(brightness*0.7 / 65025 * 65535))
             blue.duty_u16(int(brightness*0.6 / 65025 * 65535))
         elif current_color == "fade":
-            red.duty_u16()
+            red.duty_u16(0)
             green.duty_u16(0)
-            blue.duty_u16()
+            blue.duty_u16(0)
             _thread.start_new_thread(fade_lights, ())
         else:
             red.duty_u16(65026)
@@ -355,9 +435,11 @@ def update_LED():
             blue.duty_u16(0)
 
 def handle_change_color_request(color):
+    print("Changing Color to:", color)
     return change_color(color)
 
 def handle_change_brightness_request(brightness_choice):
+    print("Changing Brightness to:", brightness_choice)
     return set_brightness(brightness_choice)
 
 def handle_led_off_request():
@@ -365,16 +447,18 @@ def handle_led_off_request():
     current_color = "off"
     return change_color(current_color)
 
-def web_page_BROKEN(): 
+def web_page_UNUSED(): 
     try:
         with open('index.html', 'r') as file:
             html = file.read()
         html = html.format(str(isOn).lower(), current_color)
-        print('HTML content:', html)
         return html
+    except OSError as e:
+        print('OSError:', str(e)) 
+    except KeyError as ke:
+        print('KeyError:', str(ke))
     except Exception as e:
-        print('Error reading index.html:', e)
-        return ''
+        print('Exception:', str(e))
 
 def web_page():
     html = """
@@ -475,12 +559,14 @@ def web_page():
             </div>
         </div>
         <div class = "version-update">
-            <p>CURRENT VERSION: {{ current_version }}</p>
-            <button class="button" onclick="updateSoftware('update_software')">Update Software</button>
-        </div>
+            <p>PicoOS Version: {{ current_version }}</p>
+            <p id="updateMessage">{{ update_message }}</p>
+            <button class="button" onclick="checkUpdates()">Check for Updates</button>
+            <button class="button" onclick="updateSoftware()">Update Software</button>
+
         <script>
             var isOn = false;
-            var current_color = "white";
+            var current_color = "softwhite";
             
             function toggleLED() {
                 var button = document.getElementById("toggleButton");
@@ -498,7 +584,7 @@ def web_page():
                     change_color(current_color);
                 }
             }
-            
+
             function change_color(color) {
                 console.log("Selected color: " + color);
                 if (isOn) {
@@ -512,6 +598,30 @@ def web_page():
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
+            
+            function checkUpdates() {
+                fetch('/check_update')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById('updateMessage').innerText = data;
+                })
+                .catch(error => {
+                    document.getElementById('updateMessage').innerText = "Error: " + error.message;
+                });
+            }
+
+            function updateSoftware() {
+                fetch('/update_software')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('updateMessage').innerText = data;
+                });
+            }
 
             function makeRequest(url) {
                 var xhr = new XMLHttpRequest();
@@ -522,11 +632,7 @@ def web_page():
     </body>
     </html>
     """
-    html = html.replace("{{ current_version }}", str(deliver_current_version()))
-    html = html.replace("{{ update_message }}", str(check_for_update()))
-        
     return html
-
 
 def parse_request(request):
     request = str(request)
@@ -534,23 +640,29 @@ def parse_request(request):
         color_start = request.find("/change_color?color=") + len("/change_color?color=")
         color_end = request.find(" ", color_start)
         color = request[color_start:color_end]
+        print("Parsed Color:", color)
         return handle_change_color_request(color)
     if "/change_brightness" in request:
         brightness_start = request.find("/change_brightness?brightness=") + len("/change_brightness?brightness=")
         brightness_end = request.find(" ", brightness_start)
         brightness_choice = request[brightness_start:brightness_end]
+        print("Parsed Brightness:", brightness_choice)
         return handle_change_brightness_request(brightness_choice)
     if "/led_off" in request:
         return handle_led_off_request()
+    if "/check_update" in request:
+        return generate_updated_web_page()
+    if "/update_software" in request:
+        return software_update_request()
     return ''
 
-def pico_os_main():
+def start_web_server():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', 80))
+    s.listen(5)
     while True:
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(('', 80))
-            s.listen(5)
             conn, addr = s.accept()
             conn.settimeout(3.0)
             print('Received HTTP GET connection request from %s' % str(addr))
@@ -559,7 +671,7 @@ def pico_os_main():
             conn.settimeout(None)
             response = ''  
             if "GET / " in request:
-                response = web_page()
+                response = generate_updated_web_page()
                 response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nConnection: close\r\n\r\n"
             else:
                 response = parse_request(request)
@@ -573,35 +685,37 @@ def pico_os_main():
         except Exception as e:
             conn.close()
             print('Connection closed due to Exception: ', str(e))
-        except KeyboardInterrupt:
-            print('KeyboardInterrupt: Stopping the program...')
+    return s
+
+def pico_os_main():
+    s = None
+    try:
+        while True:
+            s = start_web_server()
+    except KeyboardInterrupt:
+        print('KeyboardInterrupt: Stopping the program...')
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+    finally:
+        lights_off()
+        for i in range(5): 
+            red.duty_u16(65025)
+            green.duty_u16(65025)
+            time.sleep(0.1)
             red.duty_u16(0)
             green.duty_u16(0)
-            blue.duty_u16(0)
-            for i in range(5): 
-                red.duty_u16(65025)
-                green.duty_u16(65025)
-                time.sleep(0.1)
-                red.duty_u16(0)
-                green.duty_u16(0)
-                time.sleep(0.1)
-                red.duty_u16(0)
-                green.duty_u16(0)
-            station = network.WLAN(network.STA_IF)
-            station.disconnect()
-            station.active(False)
-            print("System Disconneted")
+            time.sleep(0.1)
+            red.duty_u16(0)
+            green.duty_u16(0)
+        station = network.WLAN(network.STA_IF)
+        station.disconnect()
+        station.active(False)
+        if s:
             s.close()
-        finally:
-            s.close()
-            break
-
-    
+        print("System Disconnected")
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 
 gc.collect()
 connect_wifi()
 pico_os_main()
-
-

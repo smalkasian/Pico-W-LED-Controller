@@ -39,8 +39,8 @@ gc.collect()
 #------------------------------INITIAL VAR ASSIGNMENT------------------------------
 
 # ADD YOUR WIFI INFORMATION  (!!)
-ssid = 'FreedomBlend-Guest'
-password = 'americano'
+ssid = 'CenturyLink4157'
+password = 'mi9ej7bq7pj2xf'
 
 # CHANGE GPIO NIMBERS  (!!)
 red = PWM(Pin(0))
