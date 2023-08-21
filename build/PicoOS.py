@@ -15,9 +15,9 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("UNSTABLE - Developer Preview")
+print("Stable - Developer Preview")
 def deliver_current_version():
-    __version__ = (1,3,0)
+    __version__ = (2,0,0)
     is_stable = False
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
@@ -27,7 +27,7 @@ def deliver_current_version():
 # • Changed the file name to PicoOS.py rather than main.py as this will no longer be the main.
 # • Moved all processes into their own functions (wifi, and main thread)
 # • The main program is now main.py. It boots from that and then loads the actual OS from picoOS.py and continues with normal processes.
-
+# • OS now supports OTA updates.
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
@@ -250,6 +250,7 @@ def check_remote_version():
 
 def check_for_update():
     try:
+        gc.collect()
         local_version = deliver_current_version()
         remote_version = check_remote_version()
         if remote_version is None:
@@ -271,6 +272,7 @@ def update_software():
     update_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
     temp_file = "PicoOS_temp.py"
     backup_file = "PicoOS_backup.py"
+    gc.collect()
     try:
         response = urequests.get(update_url)
         if response.status_code == 200:
@@ -292,6 +294,7 @@ def update_software():
         return update_message 
 
 def software_update_request():
+    gc.collect()
     try:
         local_version = deliver_current_version()
         remote_version = check_remote_version()
@@ -301,7 +304,7 @@ def software_update_request():
             update_message = (f"{local_version} is the current version. No update needed!")
         elif remote_version > local_version:
             update_message = "Updating software. Please wait."
-            update_software()
+            _thread.start_new_thread(update_software, ())
     except Exception as e:
         update_message = "FAILED TO GET UPDATE"
         print("Error:", e)
@@ -651,7 +654,7 @@ def parse_request(request):
     if "/led_off" in request:
         return handle_led_off_request()
     if "/check_update" in request:
-        return generate_updated_web_page()
+        return check_for_update()
     if "/update_software" in request:
         return software_update_request()
     return ''
