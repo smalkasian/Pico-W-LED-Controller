@@ -566,7 +566,7 @@ def web_page():
             <p>PicoOS Version: {{ current_version }}</p>
             <p id="updateMessage">{{ update_message }}</p>
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
-            <button class="button" onclick="updateSoftware()">Update Software</button>
+            <!-- <button class="button" onclick="updateSoftware()">Update Software</button> -->
 
         <script>
             var isOn = false;
