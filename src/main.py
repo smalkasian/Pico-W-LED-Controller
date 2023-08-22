@@ -15,7 +15,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("Stable - OTA Update")
+print("Stable - OTA Update Version")
 def deliver_current_version():
     __version__ = (1,3,0)
     is_stable = True
