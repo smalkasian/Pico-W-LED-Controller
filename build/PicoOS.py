@@ -17,11 +17,13 @@
 #--------------------------------------------------------------------------------------
 print("UNSTABLE - Developer Preview")
 def deliver_current_version():
-    __version__ = (1,3,1)
+    __version__ = (1,3,2)
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
 # • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
 # • Update button appears when there's an available software update.
+# • Bug handling when the update fails. 
+# • Global var for thread handling.
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
