@@ -23,13 +23,15 @@ def deliver_current_version():
 #------------------------------------CHANGELOG-----------------------------------------
 # • If the wifi files doesn't exist, when the device first boots, it will create the file empty file.
 # • Changed the file name to PicoOS.py rather than main.py as this will no longer be the main.
-# • Moved all processes into their own functions (wifi, and main thread)
+# • Moved all processes into their own functions (wifi, and main thread).
 # • The main program is now main.py. It boots from that and then loads the actual OS from picoOS.py and continues with normal processes.
-# • OS now supports OTA updates
+# • OS now supports OTA updates (logic and functionality).
+
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
-# 
+# OTA Update still doesn't fully work.
+
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
