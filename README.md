@@ -18,12 +18,13 @@ green = PWM(Pin(1))
 blue = PWM(Pin(2))
 ```
 5. The first tine you boot up, it should attempt to connect to the wifi.
-* 🟡 Yellow blinking means it's working on a wifi connection.
+* 🟡 Yellow pulsing means it's attempting a wifi connection.
 * 🟡 Yellow solid means the system froze and needs to be reconnected.
-* 🔴 Red blinking means a failure (of any kind).
+* 🔴 Red flashing means a failure (of any kind).
 * 🔴 Red solid means it's waiting for some kind of input through the REPL.
-* 🟢 Green (anytime) means a successful connection.
+* 🟢 Green (anytime) means a successful connection or action.
 * 🔵 //Unused at this time//
+* 🟣 Purple pulsing means the software is updating.
 6. Through your console/terminal, it will tell you it cannot connect to the wifi and to enter your wifi credentials after which, should connect successfully.
 (Anytime it connects to the wifi, it will show the IP in the terminal. You can enter than in your web browser to access the web GUI).
 
