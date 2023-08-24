@@ -37,9 +37,6 @@ def update_software():
             uos.rename(backup_file, "PicoOS.py")
         print("Update failed:", e)
 
-
-
-
 #----------------------------------MAIN PROGRAM---------------------------------------
 
 
