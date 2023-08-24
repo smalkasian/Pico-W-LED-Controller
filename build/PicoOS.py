@@ -15,17 +15,14 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("Stable - Developer Preview")
+print("UNSTABLE - Developer Preview")
 def deliver_current_version():
-    __version__ = (1,3,1)
+    __version__ = (1,3,2)
     is_stable = False
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
-# • If the wifi files doesn't exist, when the device first boots, it will create the file empty file.
-# • Changed the file name to PicoOS.py rather than main.py as this will no longer be the main.
-# • Moved all processes into their own functions (wifi, and main thread)
-# • The main program is now main.py. It boots from that and then loads the actual OS from picoOS.py and continues with normal processes.
-# • OS now supports OTA updates
+# • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
+# • Update button appears when there's an available software update.
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
@@ -61,7 +58,7 @@ green.freq(1000)
 blue.freq(1000)
 
 isOn = False
-brightness = 0
+brightness = 65025
 
 # baton = _thread.allocate_lock()
 
@@ -251,24 +248,20 @@ def check_remote_version():
     return None
 
 def check_for_update():
+    gc.collect()
     try:
-        gc.collect()
         local_version = deliver_current_version()
         remote_version = check_remote_version()
         if remote_version is None:
             return "Failed to fetch remote version. Try again in a little bit."
         elif remote_version == local_version:
-            update_message = f"{local_version} is the current version. You are up to date!"
+            return f"{local_version} is the current version. You are up to date!"
         elif remote_version > local_version:
-            update_message = f"Version {remote_version} is available."
-        elif remote_version != local_version:
-            update_message = "Something went wrong while checking for the update."
+            return f"Version {remote_version} is available."  # This line contains "Version"
         else:
-           update_message = "FAILED TO GET UPDATE"
+           return "FAILED TO GET UPDATE"
     except Exception as e:
-        update_message = "FAILED TO GET UPDATE"
-        print("Error:", e)
-    return update_message
+        return "FAILED TO GET UPDATE"
         
 def update_software():
     update_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
@@ -397,9 +390,6 @@ def fade_lights():
 
 def update_LED(): 
     if isOn:
-        brightness = 0
-        if brightness == 0:
-            brightness = 65025
         print(f"Updating LED. Color: {current_color}, Brightness: {brightness}, isOn: {isOn}")
         if current_color == "red":
             red.duty_u16(brightness)
@@ -564,14 +554,18 @@ def web_page():
             </div>
         </div>
         <div class = "version-update">
-            <p>PicoOS Version: {{ current_version }}</p>
-            <p id="updateMessage">{{ update_message }}</p>
+            <div class="version-display">
+                <p>Microcontroller Version: <span id="currentVersion">Loading...</span></p>
+            </div>
+            <p id="updateMessage">{{ Not Checked }}</p>
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
-            <!-- <button class="button" onclick="updateSoftware()">Update Software</button> -->
+            <button class="button" id="updateButton" style="display: none;" onclick="updateSoftware()">Update Software</button>
 
         <script>
             var isOn = false;
             var current_color = "softwhite";
+            
+            window.onload = fetchCurrentVersion;
             
             function toggleLED() {
                 var button = document.getElementById("toggleButton");
@@ -603,6 +597,21 @@ def web_page():
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
+            function fetchCurrentVersion() {
+                fetch('/current_version')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById('currentVersion').innerText = data;
+                })
+                .catch(error => {
+                    document.getElementById('currentVersion').innerText = "Error: " + error.message;
+                });
+            }
             
             function checkUpdates() {
                 fetch('/check_update')
@@ -614,6 +623,12 @@ def web_page():
                 })
                 .then(data => {
                     document.getElementById('updateMessage').innerText = data;
+                    // If "Version" is found in the response, show the update button
+                    if (data.includes("Version")) {
+                        document.getElementById('updateButton').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('updateButton').style.display = 'none';
+                    }
                 })
                 .catch(error => {
                     document.getElementById('updateMessage').innerText = "Error: " + error.message;
@@ -659,6 +674,8 @@ def parse_request(request):
         return check_for_update()
     if "/update_software" in request:
         return software_update_request()
+    if "/current_version" in request:
+        return str(deliver_current_version())
     return ''
 
 def start_web_server():
@@ -676,7 +693,7 @@ def start_web_server():
             conn.settimeout(None)
             response = ''  
             if "GET / " in request:
-                response = generate_updated_web_page()
+                response = web_page()
                 response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nConnection: close\r\n\r\n"
             else:
                 response = parse_request(request)
