@@ -17,8 +17,7 @@
 #--------------------------------------------------------------------------------------
 print("UNSTABLE - Developer Preview")
 def deliver_current_version():
-    __version__ = (1,3,2)
-    is_stable = False
+    __version__ = (1,3,1)
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
 # • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
@@ -59,6 +58,7 @@ blue.freq(1000)
 
 isOn = False
 brightness = 65025
+thread_flag = False
 
 # baton = _thread.allocate_lock()
 
@@ -160,7 +160,9 @@ def update_wireless_password(ssid, password):
             max_retries -= 1
             time.sleep(0.1)
         if not station.isconnected():
-            print("Failed to connect with the new credentials. Please try again.")
+            print("Failed to connect with the new credentials. Trying again in 5 seconds.")
+            time.sleep(5)
+            connect_wifi()
     elif update_credentials == "no":
         print("Device will not work without WiFi.")
         print("Powering Down.")
@@ -248,7 +250,6 @@ def check_remote_version():
     return None
 
 def check_for_update():
-    gc.collect()
     try:
         local_version = deliver_current_version()
         remote_version = check_remote_version()
@@ -257,39 +258,84 @@ def check_for_update():
         elif remote_version == local_version:
             return f"{local_version} is the current version. You are up to date!"
         elif remote_version > local_version:
-            return f"Version {remote_version} is available."  # This line contains "Version"
+            return f"Version {str(remote_version)} is available."
         else:
-           return "FAILED TO GET UPDATE"
+            return "FAILED TO GET UPDATE - TRY AGAIN."
     except Exception as e:
-        return "FAILED TO GET UPDATE"
-        
+        return "FAILED TO GET UPDATE - TRY AGAIN"
+
+def led_update_status():
+    global thread_flag
+    brightness = 50000
+    while thread_flag == False:
+        for brightness in range(0, 65536, 500):
+            blue.duty_u16(brightness)
+            red.duty_u16(brightness)
+            time.sleep(0.01)
+        for brightness in range(65535, -1, -500):
+            blue.duty_u16(brightness)
+            red.duty_u16(brightness)
+            time.sleep(0.01)
+        time.sleep(0.1)
+
+def led_fail_flash():
+    time.sleep(2)
+    lights_off()
+    for i in range(5):
+        red.duty_u16(65025)
+        time.sleep(0.1)
+        red.duty_u16(0)
+        time.sleep(0.1)
+        red.duty_u16(0)
+    gc.collect()
+
 def update_software():
+    global thread_flag
     update_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
     temp_file = "PicoOS_temp.py"
     backup_file = "PicoOS_backup.py"
     gc.collect()
+    print("Starting software update...")
     try:
+        _thread.start_new_thread(led_update_status, ())
+        print("Fetching update from:", update_url)  # Progress message
         response = urequests.get(update_url)
         if response.status_code == 200:
+            print("Received update data. Writing to temp file...")  # Progress message
             update_content = response.text()
             with open(temp_file, "w") as f:
                 f.write(update_content)
-            uos.rename("PicoOS.py", backup_file) # Backup the current OS
-            uos.rename(temp_file, "PicoOS.py") # Replace with downloaded file  
+            print("Backing up current OS...")  # Progress message
+            uos.rename("PicoOS.py", backup_file)  # Backup the current OS
+            print("Applying update...")  # Progress message
+            uos.rename(temp_file, "PicoOS.py")  # Replace with downloaded file  
             update_message = "Update completed successfully."
+            print(update_message)  # Progress message
             return update_message
-            machine.reset
-        else:
+            machine.reset()
+        elif response.status_code != 200:
+            thread_flag = True
             update_message = "Update Failed!"
+            print("Error: Received status code", response.status_code)  # Progress message
+            led_fail_flash()
             return update_message
     except Exception as e:
-        if uos.path.exists(backup_file):
+        try:
+            thread_flag = True
+            uos.stat(backup_file)  # Check if the backup file exists
+            print("Restoring old OS due to error...")  # Progress message
             uos.rename(backup_file, "PicoOS.py")
             update_message = ("Update Failed. Old OS restored. Error: ", e)
-        return update_message 
+            led_fail_flash()
+        except OSError:
+            thread_flag = True
+            update_message = ("Update Failed. Error: ", e)
+            led_fail_flash()
+        return update_message
+    finally:
+        machine.reset()
 
 def software_update_request():
-    gc.collect()
     try:
         local_version = deliver_current_version()
         remote_version = check_remote_version()
@@ -555,7 +601,7 @@ def web_page():
         </div>
         <div class = "version-update">
             <div class="version-display">
-                <p>Microcontroller Version: <span id="currentVersion">Loading...</span></p>
+                <p>Controller Version: <span id="currentVersion">Loading...</span></p>
             </div>
             <p id="updateMessage">{{ Not Checked }}</p>
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
@@ -693,7 +739,7 @@ def start_web_server():
             conn.settimeout(None)
             response = ''  
             if "GET / " in request:
-                response = web_page()
+                response = generate_updated_web_page()
                 response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nConnection: close\r\n\r\n"
             else:
                 response = parse_request(request)
@@ -710,15 +756,13 @@ def start_web_server():
     return s
 
 def pico_os_main():
-    s = None
+    s = ""
+    gc.collect()
     try:
         while True:
             s = start_web_server()
     except KeyboardInterrupt:
         print('KeyboardInterrupt: Stopping the program...')
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-    finally:
         lights_off()
         for i in range(5): 
             red.duty_u16(65025)
@@ -735,9 +779,12 @@ def pico_os_main():
         if s:
             s.close()
         print("System Disconnected")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 
 gc.collect()
 connect_wifi()
-pico_os_main()
+time.sleep(2)
+update_software()
