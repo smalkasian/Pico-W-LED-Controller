@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------------------
 print("UNSTABLE - Developer Preview")
 def deliver_current_version():
-    __version__ = (1,3,3)
+    __version__ = (1,4,0)
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
 # • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
