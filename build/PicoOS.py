@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------------------
 print("STABLE - OTA Functionality Update")
 def deliver_current_version():
-    __version__ = (1,4,0)
+    __version__ = (1,4,1)
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
 # • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
@@ -25,6 +25,7 @@ def deliver_current_version():
 # • Bug handling when the update fails. 
 # • Global var for thread handling.
 # • OTA fully functional after testing.
+# • Patched web page button stack issue where text and buttons were too small.
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
@@ -491,16 +492,15 @@ def web_page():
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                height: 100vh;
             }
             .button {
                 display: inline-block;
                 padding: 10px 20px;
-                margin: 10px;
+                margin: 20px;
                 border: none;
-                border-radius: 4px;
+                border-radius: 6px;
                 cursor: pointer;
-                font-size: 2vw;
+                font-size: 4vw;
                 text-align: center;
                 text-decoration: none;
                 outline: none;
@@ -568,7 +568,7 @@ def web_page():
             <p id="updateMessage">{{ Not Checked }}</p>
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
             <button class="button" id="updateButton" style="display: none;" onclick="updateSoftware()">Update Software</button>
-
+		</div>
         <script>
             var isOn = false;
             var current_color = "softwhite";
