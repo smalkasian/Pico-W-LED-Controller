@@ -9,7 +9,7 @@ This Pico operating system allows you to control LED lights in your home from a 
 ## Workflow
 1. Drop the [UF2 bootloader](https://micropython.org/download/rp2-pico/) to your device.
 2. Clone the "src" repo to your desktop and copy ALL the files onto the device.
-3. Open the "main.py" file through your REPL and change the GPIO pins to whatever pins you connected your lights to.
+3. Open the "PicoOS.py" file through your REPL and change the GPIO pins to whatever you connected your lights to.
 * (HINT) Anytime you see (!!) in the code, it means you need to change for your own unique setup.
 ```python
 LED GPIO ASSIGNMENT (!!)
@@ -17,7 +17,7 @@ red = PWM(Pin(0)) 👈🏻 # Change the pin numbers!
 green = PWM(Pin(1))
 blue = PWM(Pin(2))
 ```
-5. The first tine you boot up, it should attempt to connect to the wifi.
+5. The first time you boot up, it should attempt to connect to the wifi.
 * 🟡 Yellow pulsing means it's attempting a wifi connection.
 * 🟡 Yellow solid means the system froze and needs to be reconnected.
 * 🔴 Red flashing means a failure (of any kind).
@@ -29,14 +29,16 @@ blue = PWM(Pin(2))
 (Anytime it connects to the wifi, it will show the IP in the terminal. You can enter than in your web browser to access the web GUI).
 
 ## What's Coming?
-1. I'm actively working on this project and will add features as I have time. One of the features I'm curretnly working on is [OTA updates](https://github.com/rdehuyss/micropython-ota-updater) that YOU control through the web GUI.
-2. Color slider for more granular control of the color as well as a slider for brightness.
-3. Support for a microphone connection so LED lights can respond to music as well as add voice control ("Pico, turn on the kitchen lights - set to white").
-4. I'd like to add a jack and/or bluetooth connectivity so that you can stream music from your device or through a Spotify API connection in the web app directly.
-5. Ability to have multiple devices in your home and to control them all from the web GUI.
+• Color slider for more granular control of the color as well as a slider for brightness.
+• Support for a microphone connection so LED lights can respond to music as well as add voice control ("Pico, turn on the kitchen lights - set to white").
+• I'd like to add a jack and/or bluetooth connectivity so that you can stream music from your device or through a Spotify API connection in the web app directly.
+• Ability to have multiple devices in your home and to control them all from the web GUI.
 
+## Recent Feature Additions
+• OTA Update! You no longer need to connect and copy the updates. It now does it with the press of a button.
 
 ## Final Comments
 I've designed 3D printed models to house the Pico and I will link the full tutorial at some point in the future (as well as how you can build your own and find supported LED lights).
 
-If you come across any bugs or experiecne odd behavior, please feel free to reach out and let me know.
+If you come across any bugs or experience odd behavior, please feel free to reach out and let me know (malkasian(a)dsm.studio).
+As this software IS open source. If you do decide to use/modify it, please let me know! I'd love to learn what features or additions the community has made!
