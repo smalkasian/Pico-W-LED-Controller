@@ -11,7 +11,6 @@ import urequests
 import re
 import _thread
 import time
-from PicoOS import lights_off, led_fail_flash, led_fail_flash, led_update_status, led_success_flash
 import uos
 from machine import Pin, PWM
 
@@ -30,6 +29,7 @@ def lights_off():
     blue.duty_u16(0)
 
 def led_success_flash():
+    lights_off()
     for i in range(10):
         green.duty_u16(65025)
         time.sleep(0.1)
@@ -94,9 +94,6 @@ def update_software():
     def apply_update():
         print("Applying update...")  # Progress message
         uos.rename(temp_file, current_file)
-        thread_flag = True
-        lights_off()
-        led_success_flash()
         return True
 
     def restore_backup():
@@ -112,6 +109,9 @@ def update_software():
     
     try:
         if download_update() and backup_current() and apply_update():
+            thread_flag = True
+            lights_off()
+            led_success_flash()
             print("Update completed successfully.")  # Progress message
             machine.reset()
         else:

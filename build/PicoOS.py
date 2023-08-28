@@ -15,7 +15,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("UNSTABLE - Developer Preview")
+print("STABLE - OTA Version")
 def deliver_current_version():
     __version__ = (1,4,0)
     return __version__
