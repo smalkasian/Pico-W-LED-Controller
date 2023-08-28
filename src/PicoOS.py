@@ -25,6 +25,7 @@ def deliver_current_version():
 # • Bug handling when the update fails. 
 # • Global var for thread handling.
 # • OTA fully functional after testing.
+# • Patched web page button stack issue where text and buttons were too small.
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
@@ -242,7 +243,7 @@ def connect_wifi():
 
 def check_remote_version():
     try:
-        remote_version_url = 'https://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
+        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = urequests.get(remote_version_url, headers=headers)
         print("Status Code:", response.status_code)
@@ -491,16 +492,15 @@ def web_page():
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                height: 100vh;
             }
             .button {
                 display: inline-block;
                 padding: 10px 20px;
-                margin: 10px;
+                margin: 20px;
                 border: none;
-                border-radius: 4px;
+                border-radius: 6px;
                 cursor: pointer;
-                font-size: 2vw;
+                font-size: 4vw;
                 text-align: center;
                 text-decoration: none;
                 outline: none;
@@ -568,7 +568,7 @@ def web_page():
             <p id="updateMessage">{{ Not Checked }}</p>
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
             <button class="button" id="updateButton" style="display: none;" onclick="updateSoftware()">Update Software</button>
-
+		</div>
         <script>
             var isOn = false;
             var current_color = "softwhite";
