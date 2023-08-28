@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------------------
 print("UNSTABLE - Developer Preview")
 def deliver_current_version():
-    __version__ = (1,3,2)
+    __version__ = (1,3,3)
     return __version__
 #------------------------------------CHANGELOG-----------------------------------------
 # • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
@@ -45,6 +45,7 @@ import re
 from machine import Pin, PWM
 import uos
 import machine
+from system_utilities import update_software
 
 
 #----------------------------INITIAL VAR ASSIGNMENT/TASKS---------------------------
@@ -102,6 +103,16 @@ def lights_off():
     red.duty_u16(0)
     green.duty_u16(0)
     blue.duty_u16(0)
+
+def led_success_flash():
+    for i in range(10):
+        green.duty_u16(65025)
+        time.sleep(0.1)
+        green.duty_u16(0)
+        time.sleep(0.1)
+    green.duty_u16(65025)
+    time.sleep(1)
+    lights_off()
 
 def load_wifi_credentials():
     DEFAULT_CREDENTIALS = {
@@ -207,14 +218,7 @@ def connect_wifi():
             lights_off()
             print('Connection successful!')
             print(station.ifconfig())
-            for i in range(10):
-                green.duty_u16(65025)
-                time.sleep(0.1)
-                green.duty_u16(0)
-                time.sleep(0.1)
-            green.duty_u16(65025)
-            time.sleep(2)
-            lights_off()
+            led_success_flash()
         else:
             print("Connection Failed: No specific reason identified")
             red.duty_u16(0)
@@ -267,6 +271,7 @@ def check_for_update():
         return "FAILED TO GET UPDATE - TRY AGAIN"
 
 def led_update_status():
+    lights_off()
     global thread_flag
     brightness = 50000
     while thread_flag == False:
@@ -291,52 +296,6 @@ def led_fail_flash():
         red.duty_u16(0)
     gc.collect()
 
-def update_software():
-    global thread_flag
-    update_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
-    temp_file = "PicoOS_temp.py"
-    backup_file = "PicoOS_backup.py"
-    gc.collect()
-    print("Starting software update...")
-    try:
-        _thread.start_new_thread(led_update_status, ())
-        print("Fetching update from:", update_url)  # Progress message
-        response = urequests.get(update_url)
-        if response.status_code == 200:
-            print("Received update data. Writing to temp file...")  # Progress message
-            update_content = response.text()
-            with open(temp_file, "w") as f:
-                f.write(update_content)
-            print("Backing up current OS...")  # Progress message
-            uos.rename("PicoOS.py", backup_file)  # Backup the current OS
-            print("Applying update...")  # Progress message
-            uos.rename(temp_file, "PicoOS.py")  # Replace with downloaded file  
-            update_message = "Update completed successfully."
-            print(update_message)  # Progress message
-            return update_message
-            machine.reset()
-        elif response.status_code != 200:
-            thread_flag = True
-            update_message = "Update Failed!"
-            print("Error: Received status code", response.status_code)  # Progress message
-            led_fail_flash()
-            return update_message
-    except Exception as e:
-        try:
-            thread_flag = True
-            uos.stat(backup_file)  # Check if the backup file exists
-            print("Restoring old OS due to error...")  # Progress message
-            uos.rename(backup_file, "PicoOS.py")
-            update_message = ("Update Failed. Old OS restored. Error: ", e)
-            led_fail_flash()
-        except OSError:
-            thread_flag = True
-            update_message = ("Update Failed. Error: ", e)
-            led_fail_flash()
-        return update_message
-    finally:
-        machine.reset()
-
 def software_update_request():
     try:
         local_version = deliver_current_version()
@@ -347,7 +306,7 @@ def software_update_request():
             update_message = (f"{local_version} is the current version. No update needed!")
         elif remote_version > local_version:
             update_message = "Updating software. Please wait."
-            _thread.start_new_thread(update_software, ())
+            update_software()
     except Exception as e:
         update_message = "FAILED TO GET UPDATE"
         print("Error:", e)
@@ -786,7 +745,4 @@ def pico_os_main():
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 
-gc.collect()
-connect_wifi()
-time.sleep(2)
-update_software()
+# NULL
