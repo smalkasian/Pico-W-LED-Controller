@@ -15,7 +15,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - OTA Version")
+print("STABLE - OTA Functionality Update")
 def deliver_current_version():
     __version__ = (1,4,0)
     return __version__
@@ -24,6 +24,7 @@ def deliver_current_version():
 # • Update button appears when there's an available software update.
 # • Bug handling when the update fails. 
 # • Global var for thread handling.
+# • OTA fully functional after testing.
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
