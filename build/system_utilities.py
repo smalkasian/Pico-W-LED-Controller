@@ -13,9 +13,57 @@ import _thread
 import time
 from PicoOS import lights_off, led_fail_flash, led_fail_flash, led_update_status, led_success_flash
 import uos
+from machine import Pin, PWM
 
 thread_flag = False
+red = PWM(Pin(0))
+green = PWM(Pin(1))
+blue = PWM(Pin(2))
 
+red.freq(1000)
+green.freq(1000)
+blue.freq(1000)
+
+def lights_off():
+    red.duty_u16(0)
+    green.duty_u16(0)
+    blue.duty_u16(0)
+
+def led_success_flash():
+    for i in range(10):
+        green.duty_u16(65025)
+        time.sleep(0.1)
+        green.duty_u16(0)
+        time.sleep(0.1)
+    green.duty_u16(65025)
+    time.sleep(1)
+    lights_off()
+
+def led_update_status():
+    lights_off()
+    global thread_flag
+    brightness = 50000
+    while thread_flag == False:
+        for brightness in range(0, 65536, 500):
+            blue.duty_u16(brightness)
+            red.duty_u16(brightness)
+            time.sleep(0.01)
+        for brightness in range(65535, -1, -500):
+            blue.duty_u16(brightness)
+            red.duty_u16(brightness)
+            time.sleep(0.01)
+        time.sleep(0.1)
+
+def led_fail_flash():
+    time.sleep(2)
+    lights_off()
+    for i in range(5):
+        red.duty_u16(65025)
+        time.sleep(0.1)
+        red.duty_u16(0)
+        time.sleep(0.1)
+        red.duty_u16(0)
+    gc.collect()
 
 def update_software():
     global thread_flag
