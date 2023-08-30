@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------------------
 print("STABLE - DEV VERSION")
 def deliver_current_version():
-    __version__ = (1, 4, 2)
+    __version__ = (1,4,2)
     version_string = '.'.join(map(str, __version__))
     return version_string
 
