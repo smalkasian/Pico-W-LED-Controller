@@ -17,17 +17,12 @@
 #--------------------------------------------------------------------------------------
 print("STABLE - DEV VERSION")
 def deliver_current_version():
-    __version__ = (1,4,2)
-    version_string = '.'.join(map(str, __version__))
-    return version_string
+    __version__ = (1,4,3)
+    return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
-# • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
-# • Update button appears when there's an available software update.
-# • Bug handling when the update fails. 
-# • Global var for thread handling.
-# • OTA fully functional after testing.
-# • Patched web page button stack issue where text and buttons were too small.
+# • Patched version display.
+# • Made minor tweaks to the web page. 
 # KNOWN ISSUES:
 # Text align issue when trying to pull in the index.html file causing it to fail.
 # Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
@@ -69,7 +64,7 @@ thread_flag = False
 
 # baton = _thread.allocate_lock()
 
-#------------------------------------WIRELESS CONNECTION-----------------------------
+#------------------------------------WIRELESS FUNCTIONS-----------------------------
 
 def yes_validator():
     userYesNo = input("[yes/no]: ")
@@ -131,8 +126,6 @@ def load_wifi_credentials():
             else:
                 raise ValueError("Invalid format in 'wifipasswords.json'")
     except (OSError, ValueError):
-        # If there's an error (file doesn't exist or has invalid format), 
-        # create the file with default credentials
         with open('wifipasswords.json', 'w') as file:
             json.dump(DEFAULT_CREDENTIALS, file)
         return DEFAULT_CREDENTIALS
@@ -158,7 +151,7 @@ def update_wireless_password(ssid, password):
         with open('wifipasswords.json', "w") as file:
             json.dump(new_credentials, file)
         station.active(True)
-        station.connect(new_ssid, new_password)  # Use the new credentials here
+        station.connect(new_ssid, new_password)
         lights_off()
         pulse_direction = 10
         max_retries = 50
@@ -195,7 +188,7 @@ def update_wireless_password(ssid, password):
         lights_off()
 
 def connect_wifi():
-    data = load_wifi_credentials()  # This ensures that data is always initialized
+    data = load_wifi_credentials()
     station = network.WLAN(network.STA_IF)
     try:
         ssid = data["ssid"]
@@ -241,7 +234,7 @@ def connect_wifi():
     except Exception as e:
         print("Connection Failed: An exception occurred -", e)
 
-#------------------------------------FUNCTIONS---------------------------------------
+#------------------------------------GENERAL FUNCTIONS------------------------------
 
 def check_remote_version():
     try:
@@ -253,28 +246,39 @@ def check_remote_version():
         if response.status_code == 200:
             match = re.search(r'__version__ = \((\d+,\d+,\d+)\)', response.text)
             if match:
-                version_string = match.group(1)  # Extract the version string
+                version_string = match.group(1)
                 version_components = tuple(map(int, version_string.split(',')))
-                dot_separated_version = '.'.join(map(str, version_components))
-                return dot_separated_version
+                return version_components
     except Exception as e:
         print("Error:", e)
     return None
+
+def deliever_local_version_to_web_page():
+    __version__ = deliver_current_version()
+    dot_seperated_local_verson = '.'.join(map(str, __version__))
+    return dot_seperated_local_verson
+
+def deliever_remote_version_to_web_page():
+    __remote_version__ = check_remote_version()
+    dot_separated_remote_version = '.'.join(map(str, __remote_version__))
+    return dot_separated_remote_version
 
 def check_for_update():
     try:
         local_version = deliver_current_version()
         remote_version = check_remote_version()
+        display_remote_version = deliever_remote_version_to_web_page()
+        display_local_version = deliever_local_version_to_web_page()
         if remote_version is None:
             return "Failed to fetch remote version. Try again in a little bit."
         elif remote_version == local_version:
-            return f"{local_version} is the current version. You are up to date!"
+            return f"{display_local_version} is the current version. You are up to date!"
         elif remote_version > local_version:
-            return f"Version {str(remote_version)} is available."
+            return f"Version {str(display_remote_version)} is available."
         else:
-            return "FAILED TO GET UPDATE - TRY AGAIN."
+            return "Version Check Failed. Try again in a little bit."
     except Exception as e:
-        return "FAILED TO GET UPDATE - TRY AGAIN"
+        return f"Version Check Failed: {e}. Try again in a little bit."
 
 def led_update_status():
     lights_off()
@@ -333,7 +337,7 @@ def generate_updated_web_page():
             updated_html = "Error: System out of memory"  # Or provide some default/fallback HTML here
         else:
             print("Error:", e)
-            updated_html = "Error: " + str(e)  # Or provide some default/fallback HTML here
+            updated_html = "Error: " + str(e)  # Or provide some default/fallback HTML here (Maybe add in the future?)
     return updated_html
 
 def set_brightness(brightnessChoice):
@@ -687,7 +691,7 @@ def parse_request(request):
     if "/update_software" in request:
         return software_update_request()
     if "/current_version" in request:
-        return str(deliver_current_version())
+        return str(deliever_local_version_to_web_page())
     return ''
 
 def start_web_server():
@@ -749,5 +753,6 @@ def pico_os_main():
         print(f"Unexpected error: {e}")
 
 #---------------------------------MAIN PROGRAM------------------------------------------
-
-# NULL
+# FOR DEBUG USE
+# conntect_wifi()
+# pico_os_main()
