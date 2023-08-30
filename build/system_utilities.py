@@ -68,6 +68,7 @@ def led_fail_flash():
 def update_software():
     global thread_flag
     update_url = 'https://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
+    # BUILD/DEVELOPMENT VERSION! update_url = 'https://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
     temp_file = "PicoOS_temp.py"
     current_file = "PicoOS.py"
     backup_file = "PicoOS_backup.py"

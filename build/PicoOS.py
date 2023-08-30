@@ -15,10 +15,12 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - OTA Functionality Update")
+print("STABLE - DEV VERSION")
 def deliver_current_version():
-    __version__ = (1,4,1)
-    return __version__
+    __version__ = (1, 4, 2)
+    version_string = '.'.join(map(str, __version__))
+    return version_string
+
 #------------------------------------CHANGELOG-----------------------------------------
 # • Patched web page pulling update every time the page loads. Caused a lag issue with web page loading. 
 # • Update button appears when there's an available software update.
@@ -247,12 +249,14 @@ def check_remote_version():
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = urequests.get(remote_version_url, headers=headers)
         print("Status Code:", response.status_code)
+        
         if response.status_code == 200:
             match = re.search(r'__version__ = \((\d+,\d+,\d+)\)', response.text)
             if match:
                 version_string = match.group(1)  # Extract the version string
                 version_components = tuple(map(int, version_string.split(',')))
-                return version_components
+                dot_separated_version = '.'.join(map(str, version_components))
+                return dot_separated_version
     except Exception as e:
         print("Error:", e)
     return None
@@ -469,7 +473,7 @@ def web_page():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Home LED Light Control</title>
+        <title>LED Light Control</title>
         <style>
             body {
                 text-align: center;
@@ -542,7 +546,7 @@ def web_page():
     <body>
         <div class="button-container">
             <div class="button-box">
-                <h2>Kitchen Lights</h2>
+                <h2>Power</h2>
                 <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
                 <br>
                 <h3>Colors</h3>
