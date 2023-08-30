@@ -4,6 +4,9 @@
 #------------------------------------------------------------------------------------
 # DO NOT DELETE THIS FILE - SYSTEM WILL NOT BE ABLE TO RUN UPDATES
 #------------------------------------------------------------------------------------
+#-----------------------
+# DEVELOPER VERSION - 1.0
+#-----------------------
 
 import gc
 import machine
@@ -13,8 +16,8 @@ import _thread
 import time
 import uos
 from machine import Pin, PWM
-
 thread_flag = False
+
 red = PWM(Pin(0))
 green = PWM(Pin(1))
 blue = PWM(Pin(2))
