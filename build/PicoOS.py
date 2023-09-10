@@ -17,16 +17,22 @@
 #--------------------------------------------------------------------------------------
 print("STABLE - DEV VERSION")
 def deliver_current_version():
-    __version__ = (1,4,3)
+    __version__ = (1,4,4)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
+# UPDATES: 1.4.3
 # • Patched version display.
 # • Made minor tweaks to the web page. 
+
 # KNOWN ISSUES:
-# Text align issue when trying to pull in the index.html file causing it to fail.
-# Connection Failed: An exception occurred - list indices must be integers, not str (when using a SSID with numbers in it).
-# 
+# (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster.
+# (ALL VERSIONS) Text align issue when trying to pull in the index.html file causing it to fail page load.
+# (ALL VERSIONS) "An exception occurred - list indices must be integers, not str" (when SSID has numbers or spaces).
+
+# IN PROGRESS/NEEDS TESTING:
+# - Adding timer button that turns the lights off. Not sure how to handle. Threadding?
+# - Flashing lights between colors.
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
@@ -34,7 +40,9 @@ try:
 except ImportError:
     import socket
 import urequests
+import random
 import time
+import utime as time
 import network
 import errno
 import gc
@@ -353,13 +361,14 @@ def set_brightness(brightnessChoice):
     update_LED()
     return 'Brightness successfully changed'
 
-def change_color(color):
-    global current_color, isOn
-    if color in ["red", "green", "blue", "white", "purple", "orange", 'softwhite', 'fade']:
+def change_color(color): # MAKE SURE STROBE FUNCTION IS FIXED TO PASS BRIGHTNESS IN
+    global current_color, isOn, thread_flag
+    if color in ["red", "green", "blue", "white", "purple", "orange", 'softwhite', 'fade', 'strobe']:
         isOn = True
         current_color = color
     elif color == "off":
         isOn = False
+        thread_flag = True
         red.duty_u16(0)
         green.duty_u16(0)
         blue.duty_u16(0)
@@ -370,43 +379,108 @@ def change_color(color):
 
 def fade_lights():
     global current_color
-    fade_speed = 1
+    thread_flag = False
+    lights_off()
+    print("Starting color fade")
+    fade_speed = .05 # Higher number = slower fade | Lower (into decimal) = faster fade
     color_values = list(range(0, 65026, 100))
     chunk_size = 10
     color_chunks = [color_values[i:i + chunk_size] for i in range(0, len(color_values), chunk_size)]
-    for chunk in color_chunks:
-        print(f'Current color at start of red-blue fade: {current_color}')  # Added for debugging
-        if current_color != 'fade':
-            return
-        for i in chunk:
+    while thread_flag == False:
+        for chunk in color_chunks:
             if current_color != 'fade':
                 return
-            red.duty_u16(65025 - i)
-            blue.duty_u16(i)
-            time.sleep(fade_speed)
-    for chunk in color_chunks:
-        print(f'Current color at start of blue-green fade: {current_color}')  # Added for debugging
-        if current_color != 'fade':
-            return
-        for i in chunk:
+            for i in chunk:
+                if current_color != 'fade':
+                    return
+                red.duty_u16(65025 - i)
+                blue.duty_u16(i)
+                time.sleep(fade_speed)
+        for chunk in color_chunks:
             if current_color != 'fade':
                 return
-            blue.duty_u16(65025 - i)
-            green.duty_u16(i)
-            time.sleep(fade_speed)
-    for chunk in color_chunks:
-        print(f'Current color at start of green-red fade: {current_color}')  # Added for debugging
-        if current_color != 'fade':
-            return
-        for i in chunk:
+            for i in chunk:
+                if current_color != 'fade':
+                    return
+                blue.duty_u16(65025 - i)
+                green.duty_u16(i)
+                time.sleep(fade_speed)
+        for chunk in color_chunks:
             if current_color != 'fade':
                 return
-            green.duty_u16(65025 - i)
-            red.duty_u16(i)
-            time.sleep(fade_speed)
+            for i in chunk:
+                if current_color != 'fade':
+                    return
+                green.duty_u16(65025 - i)
+                red.duty_u16(i)
+                time.sleep(fade_speed)
+
+def strobe_lights():
+    gc.collect()
+    global brightness, thread_flag, isOn
+    thread_flag = False
+    print(thread_flag)
+    if isOn:
+        while thread_flag == False:
+            red.duty_u16(brightness)
+            green.duty_u16(0)
+            blue.duty_u16(0)
+            time.sleep(1)
+            if thread_flag == True:
+                break
+            red.duty_u16(0)
+            green.duty_u16(brightness)
+            blue.duty_u16(0)
+            time.sleep(1)
+            if thread_flag == True:
+                break
+            red.duty_u16(0)
+            green.duty_u16(0)
+            blue.duty_u16(brightness)
+            time.sleep(1)
+            if thread_flag == True:
+                break
+            red.duty_u16(int(brightness * 0.6))
+            green.duty_u16(0)
+            blue.duty_u16(brightness)
+            time.sleep(1)
+            if thread_flag == True:
+                break
+            red.duty_u16(brightness)
+            green.duty_u16(int(brightness * 0.3))
+            blue.duty_u16(0)
+            time.sleep(1)
+            if thread_flag == True:
+                break
+            red.duty_u16(brightness)
+            green.duty_u16(brightness)
+            blue.duty_u16(0)
+            time.sleep(1)
+            if thread_flag == True:
+                break
+            red.duty_u16(0)
+            green.duty_u16(brightness)
+            blue.duty_u16(brightness)
+
+def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
+    global thread_flag
+    if thread_flag == False:
+        if timer == "hour":
+            time.sleep(100)
+            lights_off()
+        elif timer == "2_hours":
+            time.sleep(200)
+            lights_off()
+        elif timer == "5_hours":
+            time.sleep(500)
+            lights_off()
+    else:
+        pass
 
 def update_LED(): 
+    global thread_flag
     if isOn:
+        thread_flag = True
         print(f"Updating LED. Color: {current_color}, Brightness: {brightness}, isOn: {isOn}")
         if current_color == "red":
             red.duty_u16(brightness)
@@ -437,14 +511,15 @@ def update_LED():
             green.duty_u16(int(brightness*0.7 / 65025 * 65535))
             blue.duty_u16(int(brightness*0.6 / 65025 * 65535))
         elif current_color == "fade":
-            red.duty_u16(0)
-            green.duty_u16(0)
-            blue.duty_u16(0)
+            print(thread_flag)
+            gc.collect()
             _thread.start_new_thread(fade_lights, ())
+        elif current_color == "strobe":
+            print(thread_flag)
+            gc.collect()
+            _thread.start_new_thread(strobe_lights, ())
         else:
-            red.duty_u16(65026)
-            green.duty_u16(0)
-            blue.duty_u16(0)
+            led_fail_flash()
 
 def handle_change_color_request(color):
     print("Changing Color to:", color)
@@ -455,8 +530,9 @@ def handle_change_brightness_request(brightness_choice):
     return set_brightness(brightness_choice)
 
 def handle_led_off_request():
-    global current_color
+    global current_color, thread_flag
     current_color = "off"
+    thread_flag = True
     return change_color(current_color)
 
 def web_page_UNUSED(): 
@@ -562,6 +638,7 @@ def web_page():
                 <button class="button" onclick="change_color('white')">White</button>
                 <button class="button" onclick="change_color('softwhite')">Soft White</button>
                 <button class="button" onclick="change_color('fade')">Color Fade</button>
+                <button class="button" onclick="change_color('strobe')">Color Strobe</button>
                 <br>
                 <h3>Brightness</h3>
                 <button class="button" onclick="changeBrightness('bright')">Bright</button>
@@ -686,6 +763,13 @@ def parse_request(request):
         return handle_change_brightness_request(brightness_choice)
     if "/led_off" in request:
         return handle_led_off_request()
+    # if "/auto_off" in request: # THIS NEEDS TO BE FIXED
+    #     color_start = request.find("/change_color?color=") + len("/change_color?color=")
+    #     color_end = request.find(" ", color_start)
+    #     timer = request[color_start:color_end]
+    #     print("Lights off in:", timer)
+    #     return auto_off(timer_number) # THIS NEEDS TO PASS IN THE REQUEST
+    
     if "/check_update" in request:
         return check_for_update()
     if "/update_software" in request:
@@ -754,5 +838,6 @@ def pico_os_main():
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 # FOR DEBUG USE
-# conntect_wifi()
-# pico_os_main()
+gc.collect()
+connect_wifi()
+pico_os_main()
