@@ -21,7 +21,7 @@ def deliver_current_version():
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
-# UPDATES: 1.4.3
+# UPDATES: 1.4.5
 # • Patched version display.
 # • Made minor tweaks to the web page. 
 
