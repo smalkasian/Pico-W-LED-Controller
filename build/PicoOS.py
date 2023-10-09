@@ -658,7 +658,9 @@ def web_page():
             var isOn = false;
             var current_color = "softwhite";
             
-            window.onload = fetchCurrentVersion;
+            window.onload = function() {
+                setTimeout(fetchCurrentVersion, 2000); // Waits 2 seconds before calling
+            };
             
             function toggleLED() {
                 var button = document.getElementById("toggleButton");
@@ -690,20 +692,17 @@ def web_page():
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
-            function fetchCurrentVersion() {
-                fetch('/current_version')
-                .then(response => {
+            async function fetchCurrentVersion() {
+                try {
+                    let response = await fetch('/current_version');
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
                     }
-                    return response.text();
-                })
-                .then(data => {
+                    let data = await response.text();
                     document.getElementById('currentVersion').innerText = data;
-                })
-                .catch(error => {
+                } catch (error) {
                     document.getElementById('currentVersion').innerText = "Error: " + error.message;
-                });
+                }
             }
             
             function checkUpdates() {

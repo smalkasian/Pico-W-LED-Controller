@@ -2,11 +2,10 @@
 #Copyright (c) 2023, MalkasianGroup, LLC - All rights reserved.
 #------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------
-# DO NOT DELETE THIS FILE - SYSTEM WILL NOT BE ABLE TO RUN UPDATES
+# DO NOT DELETE THIS FILE - SYSTEM WILL NOT BE ABLE TO RUN UPDATES.
 #------------------------------------------------------------------------------------
-#-----------------------
-# DEVELOPER VERSION - 1.0
-#-----------------------
+# VERSION 1.0.0
+#------------------------------------------------------------------------------------
 
 import gc
 import machine
@@ -69,9 +68,9 @@ def led_fail_flash():
     gc.collect()
 
 def update_software():
+    gc.collect()
     global thread_flag
     update_url = 'https://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
-    # BUILD/DEVELOPMENT VERSION! update_url = 'https://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
     temp_file = "PicoOS_temp.py"
     current_file = "PicoOS.py"
     backup_file = "PicoOS_backup.py"
