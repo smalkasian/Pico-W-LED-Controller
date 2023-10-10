@@ -15,16 +15,16 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - DEV VERSION")
+print("STABLE - DEV VERSION - 1.4.6a")
 def deliver_current_version():
-    __version__ = (1,4,7)
+    __version__ = (1,4,6)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
 # UPDATES: 1.4.6
 # • Patched version display. Displays after the page loads
 # • Made minor tweaks to the web page.
-# • Fixed page load times from 7 secs to # secs.
+# • Fixed page load times from 7 secs to 4 secs.
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster.
@@ -248,7 +248,7 @@ def connect_wifi():
 
 def check_remote_version(): #CHECKS FOR BUILD VERSION UPDATES ONLY!!! DO NOT PASTE THIS INTO SRC
     try:
-        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
+        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = urequests.get(remote_version_url, headers=headers)
         print("Status Code:", response.status_code)
@@ -836,6 +836,6 @@ def pico_os_main():
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 # FOR DEBUG USE
-gc.collect()
-connect_wifi()
-pico_os_main()
+# gc.collect()
+# connect_wifi()
+# pico_os_main()
