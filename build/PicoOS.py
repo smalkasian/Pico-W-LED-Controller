@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------------------
 print("STABLE - DEV VERSION")
 def deliver_current_version():
-    __version__ = (1,4,6)
+    __version__ = (1,4,61)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
@@ -246,9 +246,9 @@ def connect_wifi():
 
 #------------------------------------GENERAL FUNCTIONS------------------------------
 
-def check_remote_version():
+def check_remote_version(): #CHECKS FOR BUILD VERSION UPDATES ONLY!!! DO NOT PASTE THIS INTO SRC
     try:
-        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
+        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = urequests.get(remote_version_url, headers=headers)
         print("Status Code:", response.status_code)
@@ -729,7 +729,7 @@ def parse_request(request):
         return str(deliever_local_version_to_web_page())
     return ''
 
-def start_web_server():
+def start_web_server_OLD(): # TESTING OPTOMIZED SERVER LOGIC
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', 80))
@@ -752,6 +752,53 @@ def start_web_server():
             full_response = response_headers + response
             conn.sendall(full_response.encode('utf-8'))
             conn.close()
+        except OSError as e:
+            conn.close()
+            print('Connection closed due to OSError: ', str(e)) 
+        except Exception as e:
+            conn.close()
+            print('Connection closed due to Exception: ', str(e))
+    return s
+
+def start_web_server():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', 80))
+    s.listen(5)
+
+    # Pre-load static content into memory
+    static_html = web_page()
+
+    while True:
+        try:
+            conn, addr = s.accept()
+            conn.settimeout(3.0)
+            print('Received HTTP GET connection request from %s' % str(addr))
+            request = conn.recv(1024)
+            request = request.decode('utf-8')
+            conn.settimeout(None)
+            
+            # Splitting request to get the path
+            path = request.split(" ")[1]
+
+            if path == "/":
+                # Only replace dynamic content here
+                dynamic_content = {
+                    '{{ current_version }}': str(deliever_local_version_to_web_page()),
+                    '{{ update_message }}': check_for_update()
+                }
+                for key, value in dynamic_content.items():
+                    static_html = static_html.replace(key, value)
+                response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nConnection: close\r\n\r\n"
+                full_response = response_headers + static_html
+            else:
+                response = parse_request(request)
+                response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
+                full_response = response_headers + response
+                
+            conn.sendall(full_response.encode('utf-8'))
+            conn.close()
+
         except OSError as e:
             conn.close()
             print('Connection closed due to OSError: ', str(e)) 
