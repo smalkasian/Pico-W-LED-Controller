@@ -17,19 +17,21 @@
 #--------------------------------------------------------------------------------------
 print("STABLE - DEV VERSION")
 def deliver_current_version():
-    __version__ = (1,4,5)
+    __version__ = (1,4,6)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
-# UPDATES: 1.4.5
-# • Fixed an issue where the web page loads slowly.
-
+# UPDATES: 1.4.6
+# • Patched version display. Displays after the page loads
+# • Made minor tweaks to the web page.
+# • Fixed page load times from 7 secs to # secs.
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster.
 # (ALL VERSIONS) Text align issue when trying to pull in the index.html file causing it to fail page load.
 # (ALL VERSIONS) "An exception occurred - list indices must be integers, not str" (when SSID has numbers or spaces).
-# (IN 1.4.4) Issue when switching from strobe to color fade. Memory allocation/core1 in use.
+# (IN 1.4.4 ON) When switching from strobe to fade, generates a memeory error. Needs to press btn twice.
+
 # IN PROGRESS/NEEDS TESTING:
 # - Adding timer button that turns the lights off. Not sure how to handle. Threadding?
 # - Flashing lights between colors.
@@ -555,72 +557,7 @@ def web_page():
     <head>
         <title>LED Light Control</title>
         <style>
-            body {
-                text-align: center;
-                font-family: Arial, sans-serif;
-            }
-            h1 {
-                margin-top: 20px;
-                font-size: 4vw;
-            }
-            h2 {
-                font-size: 3vw;
-                font-weight: bold;
-            }
-            h3 {
-                font-size: 3vw;
-                font-weight: normal;
-                
-            }
-            .button_container{
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-            .button {
-                display: inline-block;
-                padding: 10px 20px;
-                margin: 20px;
-                border: none;
-                border-radius: 6px;
-                cursor: pointer;
-                font-size: 4vw;
-                text-align: center;
-                text-decoration: none;
-                outline: none;
-                color: #000000;
-                background-color: #ccc;
-            }
-            .button:hover {
-                background-color: #999;
-            }
-            .on {
-                color: white;
-                background-color: rgb(48, 107, 255);
-            }
-            .off {
-                background-color: rgb(215, 215, 215);
-                color: #000;
-            }
-            .centered-text {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                text-align: center;
-                padding-bottom: 50px;
-            }
-            .button-box {
-                margin: 10px;
-                padding: 10px 50px 20px 50px; /* top right bottom left */
-                background-color: white;
-                border-radius: 11px;
-                text-align: center;
-                box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
-                max-width: auto;
-            }
-            .version-update{
-                padding-top: 50px;
-            }
+            body{text-align:center;font-family:Arial,sans-serif;}h1{margin-top:20px;font-size:4vw;}h2,h3{font-size:3vw;}h2{font-weight:bold;}h3{font-weight:normal;}.button_container{display:flex;justify-content:center;align-items:center;}.button{display:inline-block;padding:10px 20px;margin:20px;border:none;border-radius:6px;cursor:pointer;font-size:4vw;text-align:center;outline:none;background-color:#ccc;color:#000;}.button:hover{background-color:#999;}.on{background-color:rgb(48,107,255);color:#fff;}.off{background-color:rgb(215,215,215);}.centered-text{display:flex;justify-content:center;align-items:center;text-align:center;padding-bottom:50px;}.button-box{margin:10px;padding:10px 50px 20px;background-color:#fff;border-radius:11px;text-align:center;box-shadow:2px 2px 30px rgba(0,0,0,0.2);max-width:auto;}.version-update{padding-top:50px;}
         </style>
     </head>
     <body>
@@ -630,20 +567,20 @@ def web_page():
                 <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
                 <br>
                 <h3>Colors</h3>
-                <button class="button" onclick="change_color('red')">Red</button>
-                <button class="button" onclick="change_color('green')">Green</button>
-                <button class="button" onclick="change_color('blue')">Blue</button>
-                <button class="button" onclick="change_color('purple')">Purple</button>
-                <button class="button" onclick="change_color('orange')">Orange</button>
-                <button class="button" onclick="change_color('white')">White</button>
-                <button class="button" onclick="change_color('softwhite')">Soft White</button>
-                <button class="button" onclick="change_color('fade')">Color Fade</button>
-                <button class="button" onclick="change_color('strobe')">Color Strobe</button>
+                <button class="button" data-color='red'>Red</button>
+                <button class="button" data-color='green'>Green</button>
+                <button class="button" data-color='blue'>Blue</button>
+                <button class="button" data-color='purple'>Purple</button>
+                <button class="button" data-color='orange'>Orange</button>
+                <button class="button" data-color='white'>White</button>
+                <button class="button" data-color='softwhite'>Soft White</button>
+                <button class="button" data-color='fade'>Color Fade</button>
+                <button class="button" data-color='strobe'>Color Strobe</button>
                 <br>
                 <h3>Brightness</h3>
-                <button class="button" onclick="changeBrightness('bright')">Bright</button>
-                <button class="button" onclick="changeBrightness('medium')">Medium</button>
-                <button class="button" onclick="changeBrightness('dim')">Dim</button>
+                <button class="button" data-brightness='bright'>Bright</button>
+                <button class="button" data-brightness='medium'>Medium</button>
+                <button class="button" data-brightness='dim'>Dim</button>
             </div>
         </div>
         <div class = "version-update">
@@ -659,7 +596,18 @@ def web_page():
             var current_color = "softwhite";
             
             window.onload = function() {
-                setTimeout(fetchCurrentVersion, 2000); // Waits 2 seconds before calling
+                setTimeout(fetchCurrentVersion, 5000); // Waits 5 seconds before calling
+                
+                // Add the event listener inside window.onload to ensure the DOM is ready
+                document.querySelector('.button-container').addEventListener('click', function(event) {
+                    if(event.target.classList.contains('button')) {
+                        if(event.target.hasAttribute('data-color')) {
+                            change_color(event.target.getAttribute('data-color'));
+                        } else if(event.target.hasAttribute('data-brightness')) {
+                            changeBrightness(event.target.getAttribute('data-brightness'));
+                        }
+                    }
+                });
             };
             
             function toggleLED() {
@@ -692,7 +640,6 @@ def web_page():
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
-            
             async function fetchCurrentVersion() {
                 try {
                     let response = await fetch('/current_version');
@@ -736,10 +683,14 @@ def web_page():
                 });
             }
 
+            let debounceTimer;
             function makeRequest(url) {
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", url, true);
-                xhr.send();
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("GET", url, true);
+                    xhr.send();
+                }, 300); // Debounce for 300ms
             }
         </script>
     </body>
@@ -838,6 +789,6 @@ def pico_os_main():
 
 #---------------------------------MAIN PROGRAM------------------------------------------
 # FOR DEBUG USE
-# gc.collect()
-# connect_wifi()
-# pico_os_main()
+gc.collect()
+connect_wifi()
+pico_os_main()
