@@ -15,7 +15,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - DEV VERSION - 1.4.6a")
+print("STABLE - DEV VERSION - 1.4.6")
 def deliver_current_version():
     __version__ = (1,4,6)
     return __version__
@@ -24,7 +24,7 @@ def deliver_current_version():
 # UPDATES: 1.4.6
 # • Patched version display. Displays after the page loads
 # • Made minor tweaks to the web page.
-# • Fixed page load times from 7 secs to # secs.
+# • Fixed page load times from 7 secs to 4 secs.
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster.

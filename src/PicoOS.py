@@ -15,7 +15,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - DEV VERSION - 1.4.6a")
+print("STABLE - DEV VERSION - 1.4.6")
 def deliver_current_version():
     __version__ = (1,4,6)
     return __version__
