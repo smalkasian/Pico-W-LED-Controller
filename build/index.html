@@ -1,110 +1,77 @@
 <!DOCTYPE html>
     <html>
     <head>
-        <title>Home LED Light Control</title>
+        <title>LED Light Control</title>
         <style>
-            .body {
-                text-align: center;
-                font-family: Arial, sans-serif;
-            }
-            .h1 {
-                margin-top: 20px;
-                font-size: 4vw;
-            }
-            .h2 {
-                font-size: 3vw;
-                font-weight: bold;
-            }
-            .h3 {
-                font-size: 3vw;
-                font-weight: normal;
-                
-            }
-            .button_container{
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-            }
-            .button {
-                display: inline-block;
-                padding: 10px 20px;
-                margin: 10px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 2vw;
-                text-align: center;
-                text-decoration: none;
-                outline: none;
-                color: #000000;
-                background-color: #ccc;
-            }
-            .button:hover {
-                background-color: #999;
-            }
-            .on {
-                color: white;
-                background-color: rgb(48, 107, 255);
-            }
-            .off {
-                background-color: rgb(215, 215, 215);
-                color: #000;
-            }
-            .centered-text {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                text-align: center;
-                padding-bottom: 50px;
-            }
-            .button-box {
-                margin: 10px;
-                padding: 10px 50px 20px 50px; /* top right bottom left */
-                background-color: white;
-                border-radius: 11px;
-                text-align: center;
-                box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
-                max-width: auto;
-            }
-            .version-update{
-                padding-top: 50px;
-            }
+            body{text-align:center;font-family:Arial,sans-serif;}h1{margin-top:20px;font-size:4vw;}h2,h3{font-size:3vw;}h2{font-weight:bold;}h3{font-weight:normal;}.button_container{display:flex;justify-content:center;align-items:center;}.button{display:inline-block;padding:10px 20px;margin:20px;border:none;border-radius:6px;cursor:pointer;font-size:4vw;text-align:center;outline:none;background-color:#ccc;color:#000;}.button:hover{background-color:#999;}.on{background-color:rgb(48,107,255);color:#fff;}.off{background-color:rgb(215,215,215);}.centered-text{display:flex;justify-content:center;align-items:center;text-align:center;padding-bottom:50px;}.button-box{margin:10px;padding:10px 50px 20px;background-color:#fff;border-radius:11px;text-align:center;box-shadow:2px 2px 30px rgba(0,0,0,0.2);max-width:auto;}.version-update{padding-top:50px;}
         </style>
     </head>
     <body>
         <div class="button-container">
             <div class="button-box">
-                <h2>Kitchen Lights</h2>
+                <h2>Power</h2>
                 <button id="toggleButton" class="button off" onclick="toggleLED()">OFF</button>
                 <br>
                 <h3>Colors</h3>
-                <button class="button" onclick="change_color('red')">Red</button>
-                <button class="button" onclick="change_color('green')">Green</button>
-                <button class="button" onclick="change_color('blue')">Blue</button>
-                <button class="button" onclick="change_color('purple')">Purple</button>
-                <button class="button" onclick="change_color('orange')">Orange</button>
-                <button class="button" onclick="change_color('white')">White</button>
-                <button class="button" onclick="change_color('softwhite')">Soft White</button>
-                <button class="button" onclick="change_color('fade')">Color Fade</button>
+                <button class="button" data-color='red'>Red</button>
+                <button class="button" data-color='green'>Green</button>
+                <button class="button" data-color='blue'>Blue</button>
+                <button class="button" data-color='purple'>Purple</button>
+                <button class="button" data-color='orange'>Orange</button>
+                <button class="button" data-color='white'>White</button>
+                <button class="button" data-color='softwhite'>Soft White</button>
+                <button class="button" data-color='yellow'>Yellow</button>
+                <button class="button" data-color='cyan'>Cyan</button>
+                <button class="button" data-color='magenta'>Magenta</button>
+                <button class="button" data-color='teal'>Teal</button>
+                <button class="button" data-color='pink'>Pink</button>
+                <button class="button" data-color='amber'>Amber</button>
+                <button class="button" data-color='lime'>Lime</button>
+                <button class="button" data-color='fade'>Color Fade</button>
+                <button class="button" data-color='strobe'>Color Strobe</button>
                 <br>
                 <h3>Brightness</h3>
-                <button class="button" onclick="changeBrightness('bright')">Bright</button>
-                <button class="button" onclick="changeBrightness('medium')">Medium</button>
-                <button class="button" onclick="changeBrightness('dim')">Dim</button>
+                <button class="button" data-brightness='bright'>Bright</button>
+                <button class="button" data-brightness='medium'>Medium</button>
+                <button class="button" data-brightness='dim'>Dim</button>
             </div>
         </div>
         <div class = "version-update">
-            <p>CURRENT VERSION: {{ current_version }}</p>
-            <button class="button" onclick="updateSoftware('update_software')">Update Software</button>
-        </div>
+            <div class="version-display">
+                <p>Controller Version: <span id="currentVersion">Loading...</span></p>
+            </div>
+            <p id="updateMessage">{{ Not Checked }}</p>
+            <button class="button" onclick="checkUpdates()">Check for Updates</button>
+            <button class="button" id="updateButton" style="display: none;" onclick="updateSoftware()">Update Software</button>
+		</div>
         <script>
             var isOn = false;
-            var current_color = "white";
+            var current_color = "softwhite";
+            
+            window.onload = function() {
+                setTimeout(fetchCurrentVersion, 5000); // Waits 5 seconds before calling
+                document.querySelector('.button-container').addEventListener('click', function(event) {
+                    if(event.target.classList.contains('button')) {
+                        if(event.target.hasAttribute('data-color')) {
+                            change_color(event.target.getAttribute('data-color'));
+                        } else if(event.target.hasAttribute('data-brightness')) {
+                            changeBrightness(event.target.getAttribute('data-brightness'));
+                        }
+                    }
+                });
+            };
+
+            function updateUI() {
+                // Update the UI elements based on the current state
+                var button = document.getElementById("toggleButton");
+                button.innerHTML = isOn ? "ON" : "OFF";
+                button.className = isOn ? "button on" : "button off";
+
+                // Update color buttons or other elements as needed
+            }
             
             function toggleLED() {
                 var button = document.getElementById("toggleButton");
-                
                 if (isOn) {
                     button.innerHTML = "OFF";
                     button.className = "button off";
@@ -118,9 +85,9 @@
                     change_color(current_color);
                 }
             }
-            
+
             function change_color(color) {
-                console.log("Selected color: " + color);
+                console.log("Trying to change color to: " + color); // Debugging line
                 if (isOn) {
                     makeRequest('/change_color?color=' + color);
                 }
@@ -132,12 +99,58 @@
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
+            async function fetchCurrentVersion() {
+                try {
+                    let response = await fetch('/current_version');
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    let data = await response.text();
+                    document.getElementById('currentVersion').innerText = data;
+                } catch (error) {
+                    document.getElementById('currentVersion').innerText = "Error: " + error.message;
+                }
+            }
+            
+            function checkUpdates() {
+                fetch('/check_update')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById('updateMessage').innerText = data;
+                    // If "Version" is found in the response, show the update button
+                    if (data.includes("Version")) {
+                        document.getElementById('updateButton').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('updateButton').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('updateMessage').innerText = "Error: " + error.message;
+                });
+            }
 
+            function updateSoftware() {
+                fetch('/update_software')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('updateMessage').innerText = data;
+                });
+            }
+
+            let debounceTimer;
             function makeRequest(url) {
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", url, true);
-                xhr.send();
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("GET", url, true);
+                    xhr.send();
+                }, 300); // Debounce for 300ms
             }
         </script>
     </body>
-</html>
+    </html>

@@ -15,9 +15,9 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - DEV VERSION - 1.4.6")
+print("STABLE - DEV VERSION - 1.4.7")
 def deliver_current_version():
-    __version__ = (1,4,6)
+    __version__ = (1,4,7)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
@@ -25,10 +25,13 @@ def deliver_current_version():
 # • Patched version display. Displays after the page loads
 # • Made minor tweaks to the web page.
 # • Fixed page load times from 7 secs to 4 secs.
+# UPDATES: 1.4.7
+# • Added "yellow, cyan, magenta, teal, pink, amber, lime" colors.
 
 # KNOWN ISSUES:
-# (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster.
+# (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster. (FIXED? Issue was that led only looped once.)
 # (ALL VERSIONS) Text align issue when trying to pull in the index.html file causing it to fail page load.
+# (ALL VERSIONS) when trying to pull in the index.html "Connection closed due to Exception:  'NoneType' object has no attribute 'replace'"
 # (ALL VERSIONS) "An exception occurred - list indices must be integers, not str" (when SSID has numbers or spaces).
 # (IN 1.4.4 ON) When switching from strobe to fade, generates a memeory error. Needs to press btn twice.
 
@@ -122,6 +125,32 @@ def led_success_flash():
     green.duty_u16(65025)
     time.sleep(1)
     lights_off()
+
+def led_update_status():
+    lights_off()
+    global thread_flag
+    brightness = 50000
+    while thread_flag == False:
+        for brightness in range(0, 65536, 500):
+            blue.duty_u16(brightness)
+            red.duty_u16(brightness)
+            time.sleep(0.01)
+        for brightness in range(65535, -1, -500):
+            blue.duty_u16(brightness)
+            red.duty_u16(brightness)
+            time.sleep(0.01)
+        time.sleep(0.1)
+
+def led_fail_flash():
+    time.sleep(2)
+    lights_off()
+    for i in range(5):
+        red.duty_u16(65025)
+        time.sleep(0.1)
+        red.duty_u16(0)
+        time.sleep(0.1)
+        red.duty_u16(0)
+    gc.collect()
 
 def load_wifi_credentials():
     DEFAULT_CREDENTIALS = {
@@ -290,32 +319,6 @@ def check_for_update():
     except Exception as e:
         return f"Version Check Failed: {e}. Try again in a little bit."
 
-def led_update_status():
-    lights_off()
-    global thread_flag
-    brightness = 50000
-    while thread_flag == False:
-        for brightness in range(0, 65536, 500):
-            blue.duty_u16(brightness)
-            red.duty_u16(brightness)
-            time.sleep(0.01)
-        for brightness in range(65535, -1, -500):
-            blue.duty_u16(brightness)
-            red.duty_u16(brightness)
-            time.sleep(0.01)
-        time.sleep(0.1)
-
-def led_fail_flash():
-    time.sleep(2)
-    lights_off()
-    for i in range(5):
-        red.duty_u16(65025)
-        time.sleep(0.1)
-        red.duty_u16(0)
-        time.sleep(0.1)
-        red.duty_u16(0)
-    gc.collect()
-
 def software_update_request():
     try:
         local_version = deliver_current_version()
@@ -360,12 +363,12 @@ def set_brightness(brightnessChoice):
         brightness = 20000
     else:
         return 'Invalid brightness'
-    update_LED()
+    LED_colors()
     return 'Brightness successfully changed'
 
 def change_color(color): # MAKE SURE STROBE FUNCTION IS FIXED TO PASS BRIGHTNESS IN
     global current_color, isOn, thread_flag
-    if color in ["red", "green", "blue", "white", "purple", "orange", 'softwhite', 'fade', 'strobe']:
+    if color in ["red", "green", "blue", "white", "purple", "orange", "softwhite", "fade", "strobe", "yellow", "cyan", "magenta", "teal", "pink", "amber", "lime"]:
         isOn = True
         current_color = color
     elif color == "off":
@@ -376,7 +379,7 @@ def change_color(color): # MAKE SURE STROBE FUNCTION IS FIXED TO PASS BRIGHTNESS
         blue.duty_u16(0)
     else:
         return 'Invalid color'
-    update_LED()
+    LED_colors()
     return 'Color successfully changed.'
 
 def fade_lights():
@@ -479,7 +482,7 @@ def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
     else:
         pass
 
-def update_LED(): 
+def LED_colors(): 
     global thread_flag
     if isOn:
         thread_flag = True
@@ -512,6 +515,34 @@ def update_LED():
             red.duty_u16(int(brightness / 65025 * 65535))
             green.duty_u16(int(brightness*0.7 / 65025 * 65535))
             blue.duty_u16(int(brightness*0.6 / 65025 * 65535))
+        elif current_color == "yellow":
+            red.duty_u16(brightness)
+            green.duty_u16(brightness)
+            blue.duty_u16(0)
+        elif current_color == "cyan":
+            red.duty_u16(0)
+            green.duty_u16(brightness)
+            blue.duty_u16(brightness)
+        elif current_color == "magenta":
+            red.duty_u16(brightness)
+            green.duty_u16(0)
+            blue.duty_u16(brightness)
+        elif current_color == "teal":
+            red.duty_u16(0)
+            green.duty_u16(brightness)
+            blue.duty_u16(int(brightness*0.5))
+        elif current_color == "pink":
+            red.duty_u16(brightness)
+            green.duty_u16(int(brightness*0.4))
+            blue.duty_u16(int(brightness*0.6))
+        elif current_color == "amber":
+            red.duty_u16(brightness)
+            green.duty_u16(int(brightness*0.75))
+            blue.duty_u16(0)
+        elif current_color == "lime":
+            red.duty_u16(int(brightness*0.75))
+            green.duty_u16(brightness)
+            blue.duty_u16(0)
         elif current_color == "fade":
             print(thread_flag)
             gc.collect()
@@ -574,6 +605,13 @@ def web_page():
                 <button class="button" data-color='orange'>Orange</button>
                 <button class="button" data-color='white'>White</button>
                 <button class="button" data-color='softwhite'>Soft White</button>
+                <button class="button" data-color='yellow'>Yellow</button>
+                <button class="button" data-color='cyan'>Cyan</button>
+                <button class="button" data-color='magenta'>Magenta</button>
+                <button class="button" data-color='teal'>Teal</button>
+                <button class="button" data-color='pink'>Pink</button>
+                <button class="button" data-color='amber'>Amber</button>
+                <button class="button" data-color='lime'>Lime</button>
                 <button class="button" data-color='fade'>Color Fade</button>
                 <button class="button" data-color='strobe'>Color Strobe</button>
                 <br>
@@ -597,8 +635,6 @@ def web_page():
             
             window.onload = function() {
                 setTimeout(fetchCurrentVersion, 5000); // Waits 5 seconds before calling
-                
-                // Add the event listener inside window.onload to ensure the DOM is ready
                 document.querySelector('.button-container').addEventListener('click', function(event) {
                     if(event.target.classList.contains('button')) {
                         if(event.target.hasAttribute('data-color')) {
@@ -609,10 +645,18 @@ def web_page():
                     }
                 });
             };
+
+            function updateUI() {
+                // Update the UI elements based on the current state
+                var button = document.getElementById("toggleButton");
+                button.innerHTML = isOn ? "ON" : "OFF";
+                button.className = isOn ? "button on" : "button off";
+
+                // Update color buttons or other elements as needed
+            }
             
             function toggleLED() {
                 var button = document.getElementById("toggleButton");
-                
                 if (isOn) {
                     button.innerHTML = "OFF";
                     button.className = "button off";
@@ -628,7 +672,7 @@ def web_page():
             }
 
             function change_color(color) {
-                console.log("Selected color: " + color);
+                console.log("Trying to change color to: " + color); // Debugging line
                 if (isOn) {
                     makeRequest('/change_color?color=' + color);
                 }
