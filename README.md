@@ -23,22 +23,26 @@ blue = PWM(Pin(2))
 * 🔴 Red flashing means a failure (of any kind).
 * 🔴 Red solid means it's waiting for some kind of input through the REPL.
 * 🟢 Green (anytime) means a successful connection or action.
-* 🔵 //Unused at this time//
+* 🔵 Blue flash means the option you selected was successful (when scheduling something to run in advance).
 * 🟣 Purple pulsing means the software is updating.
 6. Through your console/terminal, it will tell you it cannot connect to the wifi and to enter your wifi credentials after which, should connect successfully.
-(Anytime it connects to the wifi, it will show the IP in the terminal. You can enter than in your web browser to access the web GUI).
+(Anytime it connects to the wifi, it will show the IP in the terminal. You can enter that in your web browser to access the web GUI).
 
 ## What's Coming?
 • Color slider for more granular control of the color as well as a slider for brightness.
 • Support for a microphone connection so LED lights can respond to music as well as add voice control ("Pico, turn on the kitchen lights - set to white").
-• I'd like to add a jack and/or bluetooth connectivity so that you can stream music from your device or through a Spotify API connection in the web app directly.
 • Ability to have multiple devices in your home and to control them all from the web GUI.
 
 ## Recent Feature Additions
-• OTA Update! You no longer need to connect and copy the updates. It now does it with the press of a button.
+• OTA Update! You no longer need to connect and copy the updates. It now does it at the press of a button!
 
 ## Final Comments
 I've designed 3D printed models to house the Pico and I will link the full tutorial at some point in the future (as well as how you can build your own and find supported LED lights).
 
-If you come across any bugs or experience odd behavior, please feel free to reach out and let me know (malkasian(a)dsm.studio).
+There is a folder with the Pico 3D model if you want to try building this yourself. The housing is compatable with these lights (not a sponsored link):
+https://www.amazon.com/Keepsmile-Bluetooth-Changing-Adapter-Festival/dp/B0B2D52FLK
+
+If you come across any bugs or experience odd behavior, please feel free to reach out and let me know 
+malkasian(a)dsm.studio.
+
 As this software IS open source. If you do decide to use/modify it, please let me know! I'd love to learn what features or additions the community has made!

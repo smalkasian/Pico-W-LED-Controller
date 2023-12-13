@@ -7,7 +7,6 @@
 #-----------------------------READ ME BEFORE USING!!!!!!-----------------------------
 # This code should run just fine on a pico. I am in the process of adding more colors 
 # and eventually a color slider bar. 
-
 # If you see a section that has (!!), it means you need to update that information with 
 # your own otherwise the code will not work.
 #
@@ -25,8 +24,10 @@ def deliver_current_version():
 # • Patched version display. Displays after the page loads
 # • Made minor tweaks to the web page.
 # • Fixed page load times from 7 secs to 4 secs.
-# UPDATES: 1.4.7
+# UPDATES: 1.4.7 (CURRENT DEVELOPMENT)
 # • Added "yellow, cyan, magenta, teal, pink, amber, lime" colors.
+# UPDATES: 1.5.0 (MAJOR UPDATES COMING)
+# • Virtual sunrise that lets you select the custom time for sunrise and wakeup.
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster. (FIXED? Issue was that led only looped once.)
@@ -38,6 +39,7 @@ def deliver_current_version():
 # IN PROGRESS/NEEDS TESTING:
 # - Adding timer button that turns the lights off. Not sure how to handle. Threadding?
 # - Flashing lights between colors.
+# - Feature to turn on the lights as a virtual sunrise/sunset. Let the user set the time range they power on.
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
@@ -47,6 +49,7 @@ except ImportError:
 import urequests
 import random
 import time
+import datetime
 import utime as time
 import network
 import errno
@@ -148,8 +151,17 @@ def led_fail_flash():
         red.duty_u16(65025)
         time.sleep(0.1)
         red.duty_u16(0)
+    gc.collect()
+
+def led_setting_confirm_flash(): #Used when the user chooses a option and wants to be sure it's started.
+    time.sleep(2)
+    lights_off()
+    for i in range(5):
+        blue.duty_u16(65025)
+        green.duty_u16(65025)
         time.sleep(0.1)
-        red.duty_u16(0)
+        blue.duty_u16(0)
+        green.duty_u16(0)
     gc.collect()
 
 def load_wifi_credentials():
@@ -467,6 +479,52 @@ def strobe_lights():
             green.duty_u16(brightness)
             blue.duty_u16(brightness)
 
+# UPDATES: 1.5.0 (START) ----------------------------------------------------------------
+
+def schedule_sunrise(start_time_str): #THIS NEEDS OPTOMIZATION AND TESTING
+    """ Schedule the sunrise simulation at a specific time. """
+    current_time = datetime.datetime.now()
+    start_time = datetime.datetime.strptime(start_time_str, '%H:%M').replace(year=current_time.year, month=current_time.month, day=current_time.day)
+
+    # If the time is already passed for today, schedule for tomorrow
+    if start_time < current_time:
+        start_time += datetime.timedelta(days=1)
+
+    threading.Thread(target=check_and_start_sunrise, args=(start_time,)).start()
+    return "Sunrise scheduled at " + start_time_str
+
+def sunrise_lights():
+    led_setting_confirm_flash()
+    #ADD - option about selecting the time you want it to start up at.
+    global thread_flag
+    thread_flag = False
+    sunrise_duration = 30 * 60  # 30 minutes in seconds
+    start_time = time.time()
+    end_time = start_time + sunrise_duration
+    while time.time() < end_time and not thread_flag:
+        elapsed_time = time.time() - start_time
+        progress = elapsed_time / sunrise_duration
+
+        # Calculate brightness based on progress
+        sunrise_brightness = int(progress * 65025)
+
+        # Sunrise color transition: red to orange to yellow to white
+        red_value = 65025
+        green_value = int(sunrise_brightness * progress if progress < 0.5 else sunrise_brightness)
+        blue_value = int(sunrise_brightness * (progress - 0.5) if progress > 0.5 else 0)
+
+        red.duty_u16(red_value)
+        green.duty_u16(green_value)
+        blue.duty_u16(blue_value)
+
+def check_and_start_sunrise(scheduled_time):
+    while True:
+        current_time = datetime.datetime.now()
+        if current_time >= scheduled_time:
+            sunrise_lights()
+            break
+        time.sleep(60) 
+
 def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
     global thread_flag
     if thread_flag == False:
@@ -481,6 +539,8 @@ def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
             lights_off()
     else:
         pass
+
+# UPDATES (END) ----------------------------------------------------------------
 
 def LED_colors(): 
     global thread_flag
@@ -551,6 +611,8 @@ def LED_colors():
             print(thread_flag)
             gc.collect()
             _thread.start_new_thread(strobe_lights, ())
+        elif current_color == "sunrise":
+            sunrise_lights()
         else:
             led_fail_flash()
 
@@ -568,7 +630,7 @@ def handle_led_off_request():
     thread_flag = True
     return change_color(current_color)
 
-def web_page_UNUSED(): 
+def web_page_UNUSED(): # CAN'T GET THIS TO WORK.
     try:
         with open('index.html', 'r') as file:
             html = file.read()
@@ -879,7 +941,8 @@ def pico_os_main():
         print(f"Unexpected error: {e}")
 
 #---------------------------------MAIN PROGRAM------------------------------------------
-# FOR DEBUG USE
+# FOR DEBUG USE. Allows software to run from here rather than main.py
+# Comment out before pushing to devices.
 gc.collect()
 connect_wifi()
 pico_os_main()
