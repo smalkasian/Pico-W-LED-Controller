@@ -7,7 +7,7 @@ This Pico operating system allows you to control LED lights in your home from a 
 2. You need to connect to your REPL editor the first time you run the code and enter wifi credentials.
 
 ## Workflow
-1. Drop the [UF2 bootloader](https://micropython.org/download/rp2-pico/) to your device.
+1. Drop the [UF2 bootloader](https://micropython.org/download/RPI_PICO_W/) to your device.
 2. Clone the "src" repo to your desktop and copy ALL the files onto the device.
 3. Open the "PicoOS.py" file through your REPL and change the GPIO pins to whatever you connected your lights to.
 * (HINT) Anytime you see (!!) in the code, it means you need to change for your own unique setup.
