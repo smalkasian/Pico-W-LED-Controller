@@ -40,6 +40,7 @@ def deliver_current_version():
 # - Adding timer button that turns the lights off. Not sure how to handle. Threadding?
 # - Flashing lights between colors.
 # - Feature to turn on the lights as a virtual sunrise/sunset. Let the user set the time range they power on.
+# - Lights dim on to white when a motion sensor is connected and stay on for 60 seconds and then fade out.
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
@@ -49,7 +50,6 @@ except ImportError:
 import urequests
 import random
 import time
-import datetime
 import utime as time
 import network
 import errno
@@ -145,24 +145,22 @@ def led_update_status():
         time.sleep(0.1)
 
 def led_fail_flash():
-    time.sleep(2)
     lights_off()
     for i in range(5):
         red.duty_u16(65025)
         time.sleep(0.1)
         red.duty_u16(0)
-    gc.collect()
+        time.sleep(0.1)
 
-def led_setting_confirm_flash(): #Used when the user chooses a option and wants to be sure it's started.
-    time.sleep(2)
+def led_setting_confirm_flash():
     lights_off()
-    for i in range(5):
+    for i in range(3):
         blue.duty_u16(65025)
         green.duty_u16(65025)
         time.sleep(0.1)
         blue.duty_u16(0)
         green.duty_u16(0)
-    gc.collect()
+        time.sleep(0.1)
 
 def load_wifi_credentials():
     DEFAULT_CREDENTIALS = {
@@ -481,21 +479,37 @@ def strobe_lights():
 
 # UPDATES: 1.5.0 (START) ----------------------------------------------------------------
 
-def schedule_sunrise(start_time_str): #THIS NEEDS OPTOMIZATION AND TESTING
-    """ Schedule the sunrise simulation at a specific time. """
-    current_time = datetime.datetime.now()
-    start_time = datetime.datetime.strptime(start_time_str, '%H:%M').replace(year=current_time.year, month=current_time.month, day=current_time.day)
+def schedule_runtime():
+    """
+    Prompts the user to enter a start time and waits until that time.
+    """
+    # Input and validate the start time
+    hour = int(input("Enter the start hour (0-23): "))
+    minute = int(input("Enter the start minute (0-59): "))
+    second = int(input("Enter the start second (0-59): "))
 
-    # If the time is already passed for today, schedule for tomorrow
-    if start_time < current_time:
-        start_time += datetime.timedelta(days=1)
+    # Ensure the time is valid
+    if 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59:
+        # Convert the start time to a timestamp
+        now = time.localtime()
+        start_time = time.mktime((now[0], now[1], now[2], hour, minute, second, now[6], now[7]))
 
-    threading.Thread(target=check_and_start_sunrise, args=(start_time,)).start()
-    return "Sunrise scheduled at " + start_time_str
+        # Wait until the current time is greater than or equal to the start time
+        while time.time() < start_time:
+            time.sleep(1)  # Sleep to prevent a busy-wait loop
+    else:
+        print("Invalid time entered. Please try again.")
+
+# Example of how to use schedule_runtime within another function
+def sunrise_simulator():
+    print("Waiting for the scheduled start time...")
+    schedule_runtime()
+    print("Starting the sunrise simulation...")
+
 
 def sunrise_lights():
     led_setting_confirm_flash()
-    #ADD - option about selecting the time you want it to start up at.
+    #ADD - FUNCTION FOR TIME SELECTION about selecting the time you want it to start up at.
     global thread_flag
     thread_flag = False
     sunrise_duration = 30 * 60  # 30 minutes in seconds
@@ -524,7 +538,7 @@ def check_and_start_sunrise(scheduled_time):
             sunrise_lights()
             break
         time.sleep(60) 
-
+        
 def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
     global thread_flag
     if thread_flag == False:
@@ -539,6 +553,30 @@ def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
             lights_off()
     else:
         pass
+
+def motion_detection_lights_on():
+    MAX_BRIGHTNESS = 65025
+    INCREMENT = 500
+    FULL_BRIGHT_DURATION = 60  # = seconds
+    SLEEP_INTERVAL = 0.1
+    brightness = 0
+    while brightness < MAX_BRIGHTNESS:
+        brightness += INCREMENT
+        if brightness > MAX_BRIGHTNESS:
+            brightness = MAX_BRIGHTNESS
+        red.duty_u16(brightness)
+        green.duty_u16(brightness)
+        blue.duty_u16(brightness)
+        time.sleep(SLEEP_INTERVAL)
+    time.sleep(FULL_BRIGHT_DURATION)
+    while brightness > 0:
+        brightness -= INCREMENT
+        if brightness < 0:
+            brightness = 0
+        red.duty_u16(brightness)
+        green.duty_u16(brightness)
+        blue.duty_u16(brightness)
+        time.sleep(SLEEP_INTERVAL)
 
 # UPDATES (END) ----------------------------------------------------------------
 
@@ -943,6 +981,6 @@ def pico_os_main():
 #---------------------------------MAIN PROGRAM------------------------------------------
 # FOR DEBUG USE. Allows software to run from here rather than main.py
 # Comment out before pushing to devices.
-gc.collect()
-connect_wifi()
-pico_os_main()
+#gc.collect()
+#connect_wifi()
+#pico_os_main()
