@@ -1,4 +1,4 @@
-
+# NOT MEANT TO BE ADDED TO PICO FILESYSTEM.
 import random
 import utime as time
 import gc
@@ -8,8 +8,6 @@ import re
 from machine import Pin, PWM
 import uos
 import machine
-
-
 
 #----------------------------INITIAL VAR ASSIGNMENT/TASKS---------------------------
 
