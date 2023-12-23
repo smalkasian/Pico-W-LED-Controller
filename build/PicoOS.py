@@ -14,9 +14,9 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - DEV VERSION - 1.4.7")
+print("UNSTABLE - BUILT VERSION - BETA 1.5.0b")
 def deliver_current_version():
-    __version__ = (1,4,7)
+    __version__ = (1,5,0)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
@@ -24,10 +24,11 @@ def deliver_current_version():
 # • Patched version display. Displays after the page loads
 # • Made minor tweaks to the web page.
 # • Fixed page load times from 7 secs to 4 secs.
-# UPDATES: 1.4.7 (CURRENT DEVELOPMENT)
+# UPDATES: 1.4.7
 # • Added "yellow, cyan, magenta, teal, pink, amber, lime" colors.
 # UPDATES: 1.5.0 (MAJOR UPDATES COMING)
 # • Virtual sunrise that lets you select the custom time for sunrise and wakeup.
+# • Added logic for optional motion detector feature.
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster. (FIXED? Issue was that led only looped once.)
@@ -41,6 +42,7 @@ def deliver_current_version():
 # - Flashing lights between colors.
 # - Feature to turn on the lights as a virtual sunrise/sunset. Let the user set the time range they power on.
 # - Lights dim on to white when a motion sensor is connected and stay on for 60 seconds and then fade out.
+# - Added new light "white" in case the strip has stand-alone white lights (called anytime white is).
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
@@ -69,10 +71,13 @@ from system_utilities import update_software
 red = PWM(Pin(0))
 green = PWM(Pin(1))
 blue = PWM(Pin(2))
+white = PWM(Pin(3))
+pir = Pin(5, Pin.IN, Pin.PULL_UP)
 
 red.freq(1000)
 green.freq(1000)
 blue.freq(1000)
+white.freq(1000)
 
 isOn = False
 brightness = 65025
@@ -118,6 +123,7 @@ def lights_off():
     red.duty_u16(0)
     green.duty_u16(0)
     blue.duty_u16(0)
+    white.duty_u16(0)
 
 def led_success_flash():
     for i in range(10):
@@ -126,7 +132,6 @@ def led_success_flash():
         green.duty_u16(0)
         time.sleep(0.1)
     green.duty_u16(65025)
-    time.sleep(1)
     lights_off()
 
 def led_update_status():
@@ -160,7 +165,8 @@ def led_setting_confirm_flash():
         time.sleep(0.1)
         blue.duty_u16(0)
         green.duty_u16(0)
-        time.sleep(0.1)
+        time.sleep(1.5)
+    lights_off()
 
 def load_wifi_credentials():
     DEFAULT_CREDENTIALS = {
@@ -376,17 +382,15 @@ def set_brightness(brightnessChoice):
     LED_colors()
     return 'Brightness successfully changed'
 
-def change_color(color): # MAKE SURE STROBE FUNCTION IS FIXED TO PASS BRIGHTNESS IN
+def change_color(color):
     global current_color, isOn, thread_flag
-    if color in ["red", "green", "blue", "white", "purple", "orange", "softwhite", "fade", "strobe", "yellow", "cyan", "magenta", "teal", "pink", "amber", "lime"]:
+    if color in ["fade", "strobe", "sunrise", "motion", "red", "green", "blue", "white", "purple", "orange", "softwhite", "yellow", "cyan", "magenta", "teal", "pink", "amber", "lime"]:
         isOn = True
         current_color = color
     elif color == "off":
         isOn = False
         thread_flag = True
-        red.duty_u16(0)
-        green.duty_u16(0)
-        blue.duty_u16(0)
+        lights_off()
     else:
         return 'Invalid color'
     LED_colors()
@@ -479,35 +483,7 @@ def strobe_lights():
 
 # UPDATES: 1.5.0 (START) ----------------------------------------------------------------
 
-def schedule_runtime():
-    """
-    Prompts the user to enter a start time and waits until that time.
-    """
-    # Input and validate the start time
-    hour = int(input("Enter the start hour (0-23): "))
-    minute = int(input("Enter the start minute (0-59): "))
-    second = int(input("Enter the start second (0-59): "))
-
-    # Ensure the time is valid
-    if 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59:
-        # Convert the start time to a timestamp
-        now = time.localtime()
-        start_time = time.mktime((now[0], now[1], now[2], hour, minute, second, now[6], now[7]))
-
-        # Wait until the current time is greater than or equal to the start time
-        while time.time() < start_time:
-            time.sleep(1)  # Sleep to prevent a busy-wait loop
-    else:
-        print("Invalid time entered. Please try again.")
-
-# Example of how to use schedule_runtime within another function
-def sunrise_simulator():
-    print("Waiting for the scheduled start time...")
-    schedule_runtime()
-    print("Starting the sunrise simulation...")
-
-
-def sunrise_lights():
+def sunrise_lights(): # STILL NEEDS TIMER OPTION!!!
     led_setting_confirm_flash()
     #ADD - FUNCTION FOR TIME SELECTION about selecting the time you want it to start up at.
     global thread_flag
@@ -531,52 +507,66 @@ def sunrise_lights():
         green.duty_u16(green_value)
         blue.duty_u16(blue_value)
 
-def check_and_start_sunrise(scheduled_time):
-    while True:
-        current_time = datetime.datetime.now()
-        if current_time >= scheduled_time:
-            sunrise_lights()
-            break
-        time.sleep(60) 
-        
-def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
+def auto_off(timer): # trying to avoi sleeping in the current version. It can cause the system to hang.
+    # The function is not fully completed. Still need to fix the error generated when selecting the time.
     global thread_flag
     if thread_flag == False:
-        if timer == "hour":
-            time.sleep(100)
-            lights_off()
-        elif timer == "2_hours":
-            time.sleep(200)
-            lights_off()
-        elif timer == "5_hours":
-            time.sleep(500)
-            lights_off()
+        if timer == "test":
+            time.sleep(10)
+            led_setting_confirm_flash()
+        elif timer == "one":
+            duration = 3600
+        elif timer == "three":
+            duration = 10800
+        elif timer == "six":
+            duration = 21600
     else:
         pass
 
-def motion_detection_lights_on():
+def motion_detection(): # NOTES: Still needs to be tested if it's actilly working on the motion detection
+    # Last left off adding the debugging to see where its getting to and if the flag is changing accordingly.
+    global current_color, thread_flag
     MAX_BRIGHTNESS = 65025
-    INCREMENT = 500
-    FULL_BRIGHT_DURATION = 60  # = seconds
-    SLEEP_INTERVAL = 0.1
+    INCREMENT = 500  # Adjust this for a faster or slower fade
+    DECREMENT = 500  # Adjust this for a faster or slower dimming
+    SLEEP_INTERVAL = 0.1  # Adjust this for a faster or slower fade
+    lights_off()
+    print("Successfully started motion detection mode")
     brightness = 0
-    while brightness < MAX_BRIGHTNESS:
-        brightness += INCREMENT
-        if brightness > MAX_BRIGHTNESS:
-            brightness = MAX_BRIGHTNESS
-        red.duty_u16(brightness)
-        green.duty_u16(brightness)
-        blue.duty_u16(brightness)
-        time.sleep(SLEEP_INTERVAL)
-    time.sleep(FULL_BRIGHT_DURATION)
-    while brightness > 0:
-        brightness -= INCREMENT
-        if brightness < 0:
-            brightness = 0
-        red.duty_u16(brightness)
-        green.duty_u16(brightness)
-        blue.duty_u16(brightness)
-        time.sleep(SLEEP_INTERVAL)
+    if thread_flag == False:
+        while current_color == 'motion':
+            if pir.value() == 0:
+                print("Motion detected")
+                print(f"Thread Flag: {thread_flag}. PIR Sensor Value:", pir.value()) #Added for debugging
+                while brightness < MAX_BRIGHTNESS:
+                    if current_color != 'motion' or thread_flag:
+                        return
+                    brightness += INCREMENT
+                    brightness = min(brightness, MAX_BRIGHTNESS)
+                    red.duty_u16(brightness)
+                    green.duty_u16(brightness)
+                    blue.duty_u16(brightness)
+                    white.duty_u16(brightness)
+                    time.sleep(SLEEP_INTERVAL)
+                print('simulate lights on for 60 seconds')
+                time.sleep(5)
+            else:
+                print("Waiting for movement")
+                print('simulating them dimming')
+                while brightness > 0:
+                    if current_color != 'motion' or thread_flag:
+                        return
+                    brightness -= DECREMENT
+                    brightness = max(brightness, 0)
+                    red.duty_u16(brightness)
+                    green.duty_u16(brightness)
+                    blue.duty_u16(brightness)
+                    white.duty_u16(brightness)
+                    time.sleep(SLEEP_INTERVAL)
+                print('waiting briefly before checking again for movement')
+                time.sleep(1)
+    else:
+        return
 
 # UPDATES (END) ----------------------------------------------------------------
 
@@ -584,6 +574,8 @@ def LED_colors():
     global thread_flag
     if isOn:
         thread_flag = True
+        gc.collect()
+        lights_off()
         print(f"Updating LED. Color: {current_color}, Brightness: {brightness}, isOn: {isOn}")
         if current_color == "red":
             red.duty_u16(brightness)
@@ -601,6 +593,7 @@ def LED_colors():
             red.duty_u16(brightness)
             green.duty_u16(brightness)
             blue.duty_u16(brightness)
+            white.duty_u16(brightness)
         elif current_color == "purple":
             red.duty_u16(int(brightness*0.6))
             green.duty_u16(0)
@@ -613,6 +606,7 @@ def LED_colors():
             red.duty_u16(int(brightness / 65025 * 65535))
             green.duty_u16(int(brightness*0.7 / 65025 * 65535))
             blue.duty_u16(int(brightness*0.6 / 65025 * 65535))
+            white.duty_u16(brightness)
         elif current_color == "yellow":
             red.duty_u16(brightness)
             green.duty_u16(brightness)
@@ -643,14 +637,14 @@ def LED_colors():
             blue.duty_u16(0)
         elif current_color == "fade":
             print(thread_flag)
-            gc.collect()
             _thread.start_new_thread(fade_lights, ())
         elif current_color == "strobe":
             print(thread_flag)
-            gc.collect()
             _thread.start_new_thread(strobe_lights, ())
         elif current_color == "sunrise":
-            sunrise_lights()
+            _thread.start_new_thread(sunrise_lights, ())
+        elif current_color == "motion":
+            _thread.start_new_thread(motion_detection, ())
         else:
             led_fail_flash()
 
@@ -681,7 +675,10 @@ def web_page_UNUSED(): # CAN'T GET THIS TO WORK.
     except Exception as e:
         print('Exception:', str(e))
 
-def web_page():
+def web_page(): #NOTES: Test without the javascript and see of that helps the page load faster.
+    # Also add the motion and sunrise button to a new page or button section.
+    # Add javascript code for the auto off setting. Not sure how to handle the threading aspect of it...
+    # Maybe try adding a new thread for each of those? I might need to add in a parse() feature for it.
     html = """
     <!DOCTYPE html>
     <html>
@@ -712,13 +709,22 @@ def web_page():
                 <button class="button" data-color='pink'>Pink</button>
                 <button class="button" data-color='amber'>Amber</button>
                 <button class="button" data-color='lime'>Lime</button>
+                <br>
+                <h3>Automatic Functions</h3>
                 <button class="button" data-color='fade'>Color Fade</button>
                 <button class="button" data-color='strobe'>Color Strobe</button>
+                <button class="button" data-color='motion'>Motion Detection</button>
+                <button class="button" data-color='sunrise'>Simulate Sunrise</button>
                 <br>
                 <h3>Brightness</h3>
                 <button class="button" data-brightness='bright'>Bright</button>
                 <button class="button" data-brightness='medium'>Medium</button>
                 <button class="button" data-brightness='dim'>Dim</button>
+                <h3>Auto-Off Timer</h3>
+                <button class="button" data-timer='test'>Test</button>
+                <button class="button" data-timer='one'>1-Hour</button>
+                <button class="button" data-timer='three'>3-Hours</button>
+                <button class="button" data-timer='six'>6-Hours</button>
             </div>
         </div>
         <div class = "version-update">
@@ -729,6 +735,8 @@ def web_page():
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
             <button class="button" id="updateButton" style="display: none;" onclick="updateSoftware()">Update Software</button>
 		</div>
+        <p>Note from the developer: When you select an option where the lights have a delay </p>
+        <p>(i.e., sunrise or auto off timer) the lights will flash teal to confirm the action was successful. </p>
         <script>
             var isOn = false;
             var current_color = "softwhite";
@@ -741,6 +749,8 @@ def web_page():
                             change_color(event.target.getAttribute('data-color'));
                         } else if(event.target.hasAttribute('data-brightness')) {
                             changeBrightness(event.target.getAttribute('data-brightness'));
+                        } else if(event.target.hasAttribute('data-timer')) {
+                            auto_off(event.target.getAttribute('data-timer'));
                         }
                     }
                 });
@@ -784,6 +794,14 @@ def web_page():
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
+            
+            function auto_off(timer) {
+                console.log("Selected Timer: " + timer);
+                if (isOn) {
+                    makeRequest('/auto_off?timer=' + timer);
+                }
+            }
+            
             async function fetchCurrentVersion() {
                 try {
                     let response = await fetch('/current_version');
@@ -858,12 +876,12 @@ def parse_request(request):
         return handle_change_brightness_request(brightness_choice)
     if "/led_off" in request:
         return handle_led_off_request()
-    # if "/auto_off" in request: # THIS NEEDS TO BE FIXED
-    #     color_start = request.find("/change_color?color=") + len("/change_color?color=")
-    #     color_end = request.find(" ", color_start)
-    #     timer = request[color_start:color_end]
-    #     print("Lights off in:", timer)
-    #     return auto_off(timer_number) # THIS NEEDS TO PASS IN THE REQUEST
+    if "/auto_off" in request:
+        auto_off_start = request.find("/auto_off?timer=") + len("/auto_off?timer=")
+        auto_off_end = request.find(" ", auto_off_start)
+        auto_off_choice = request[auto_off_start:auto_off_end]
+        print("Auto-Off Timer:", auto_off_choice)
+        return auto_off(auto_off_choice)
     
     if "/check_update" in request:
         return check_for_update()
@@ -981,6 +999,6 @@ def pico_os_main():
 #---------------------------------MAIN PROGRAM------------------------------------------
 # FOR DEBUG USE. Allows software to run from here rather than main.py
 # Comment out before pushing to devices.
-#gc.collect()
-#connect_wifi()
-#pico_os_main()
+gc.collect()
+connect_wifi()
+pico_os_main()
