@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-    <html>
+<html>
     <head>
         <title>LED Light Control</title>
         <style>
@@ -27,23 +26,35 @@
                 <button class="button" data-color='pink'>Pink</button>
                 <button class="button" data-color='amber'>Amber</button>
                 <button class="button" data-color='lime'>Lime</button>
+                <br>
+                <h3>Automatic Functions</h3>
                 <button class="button" data-color='fade'>Color Fade</button>
                 <button class="button" data-color='strobe'>Color Strobe</button>
+                <button class="button" data-color='motion'>Motion Detection</button>
+                <button class="button" data-color='sunrise'>Simulate Sunrise</button>
                 <br>
                 <h3>Brightness</h3>
                 <button class="button" data-brightness='bright'>Bright</button>
                 <button class="button" data-brightness='medium'>Medium</button>
                 <button class="button" data-brightness='dim'>Dim</button>
+                <h3>Auto-Off Timer</h3>
+                <button class="button" data-timer='test'>Test</button>
+                <button class="button" data-timer='one'>1-Hour</button>
+                <button class="button" data-timer='three'>3-Hours</button>
+                <button class="button" data-timer='six'>6-Hours</button>
             </div>
         </div>
         <div class = "version-update">
             <div class="version-display">
+                <p>WebApp Version: 1.5.0</p>
                 <p>Controller Version: <span id="currentVersion">Loading...</span></p>
             </div>
             <p id="updateMessage">{{ Not Checked }}</p>
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
             <button class="button" id="updateButton" style="display: none;" onclick="updateSoftware()">Update Software</button>
 		</div>
+        <p>Note from the developer: When you select an option where the lights have a delay </p>
+        <p>(i.e., sunrise or auto off timer) the lights will flash teal to confirm the action was successful. </p>
         <script>
             var isOn = false;
             var current_color = "softwhite";
@@ -56,6 +67,8 @@
                             change_color(event.target.getAttribute('data-color'));
                         } else if(event.target.hasAttribute('data-brightness')) {
                             changeBrightness(event.target.getAttribute('data-brightness'));
+                        } else if(event.target.hasAttribute('data-timer')) {
+                            auto_off(event.target.getAttribute('data-timer'));
                         }
                     }
                 });
@@ -99,6 +112,14 @@
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
+            
+            function auto_off(timer) {
+                console.log("Selected Timer: " + timer);
+                if (isOn) {
+                    makeRequest('/auto_off?timer=' + timer);
+                }
+            }
+            
             async function fetchCurrentVersion() {
                 try {
                     let response = await fetch('/current_version');

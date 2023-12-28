@@ -14,7 +14,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("UNSTABLE - BUILT VERSION - BETA 1.5.0b")
+print("UNSTABLE - BUILT VERSION - BETA 1.5.0-b")
 def deliver_current_version():
     __version__ = (1,5,0)
     return __version__
@@ -29,6 +29,7 @@ def deliver_current_version():
 # UPDATES: 1.5.0 (MAJOR UPDATES COMING)
 # • Virtual sunrise that lets you select the custom time for sunrise and wakeup.
 # • Added logic for optional motion detector feature.
+# • Added version tracking to the webpage
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster. (FIXED? Issue was that led only looped once.)
@@ -38,7 +39,6 @@ def deliver_current_version():
 # (IN 1.4.4 ON) When switching from strobe to fade, generates a memeory error. Needs to press btn twice.
 
 # IN PROGRESS/NEEDS TESTING:
-# - Adding timer button that turns the lights off. Not sure how to handle. Threadding?
 # - Flashing lights between colors.
 # - Feature to turn on the lights as a virtual sunrise/sunset. Let the user set the time range they power on.
 # - Lights dim on to white when a motion sensor is connected and stay on for 60 seconds and then fade out.
@@ -71,7 +71,7 @@ from system_utilities import update_software
 red = PWM(Pin(0))
 green = PWM(Pin(1))
 blue = PWM(Pin(2))
-white = PWM(Pin(3))
+white = PWM(Pin(3)) #
 pir = Pin(5, Pin.IN, Pin.PULL_UP)
 
 red.freq(1000)
@@ -97,7 +97,22 @@ def yes_validator():
             return userYesNo
         elif userYesNo == 'no':
             return userYesNo
-        
+
+def reconnection_number_choice_validator():
+    user_choice = input("[1] - Yes \n[2] - No \n[3] - Reconnect \nChoose an option: ")
+    while user_choice not in ["1", "2", "3"]:
+        user_choice = input("Invalid entry: Please enter a valid number: ")
+    else:
+        if user_choice == '1':
+            print("")
+            return 1
+        elif user_choice == '2':
+            print("")
+            return 2
+        elif user_choice == '3':
+            print("")
+            return 3
+
 def number_option_validator():
     user_choice = input("Choose a network -- [1] [2] [3] [4] [5]: ")
     while user_choice not in ["1", "2", "3", "4", "5"]:
@@ -158,15 +173,13 @@ def led_fail_flash():
         time.sleep(0.1)
 
 def led_setting_confirm_flash():
-    lights_off()
-    for i in range(3):
+    for i in range(4):
         blue.duty_u16(65025)
         green.duty_u16(65025)
         time.sleep(0.1)
         blue.duty_u16(0)
         green.duty_u16(0)
-        time.sleep(1.5)
-    lights_off()
+    time.sleep(1.5)
 
 def load_wifi_credentials():
     DEFAULT_CREDENTIALS = {
@@ -198,8 +211,8 @@ def update_wireless_password(ssid, password):
     print("--------------------------------")
     print("")
     print("Would you like to update the password?")
-    update_credentials = yes_validator()
-    if update_credentials == "yes":
+    update_credentials = reconnection_number_choice_validator()
+    if update_credentials == 1:
         new_ssid = input("Enter your WiFi SSID: ")
         new_password = input("Enter your WiFi password: ")
         new_credentials = {"ssid": new_ssid, "password": new_password}
@@ -225,10 +238,11 @@ def update_wireless_password(ssid, password):
             max_retries -= 1
             time.sleep(0.1)
         if not station.isconnected():
-            print("Failed to connect with the new credentials. Trying again in 5 seconds.")
-            time.sleep(5)
+            print("Failed to connect with the new credentials. Will try in 2 seconds.")
+            led_fail_flash()
+            time.sleep(3)
             connect_wifi()
-    elif update_credentials == "no":
+    elif update_credentials == 2:
         print("Device will not work without WiFi.")
         print("Powering Down.")
         lights_off()
@@ -241,6 +255,8 @@ def update_wireless_password(ssid, password):
         station.disconnect()
         station.active(False)
         lights_off()
+    elif update_credentials == 3:
+        connect_wifi()
 
 def connect_wifi():
     data = load_wifi_credentials()
@@ -289,8 +305,8 @@ def connect_wifi():
     except Exception as e:
         print("Connection Failed: An exception occurred -", e)
 
-#------------------------------------GENERAL FUNCTIONS------------------------------
-
+#-----------------------------------OTA UPDATE FUNCTIONS----------------------------
+        
 def check_remote_version(): #CHECKS FOR BUILD VERSION UPDATES ONLY!!! DO NOT PASTE THIS INTO SRC
     try:
         remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
@@ -368,6 +384,8 @@ def generate_updated_web_page():
             print("Error:", e)
             updated_html = "Error: " + str(e)  # Or provide some default/fallback HTML here (Maybe add in the future?)
     return updated_html
+
+#------------------------------------GENERAL FUNCTIONS------------------------------
 
 def set_brightness(brightnessChoice):
     global brightness
@@ -507,12 +525,13 @@ def sunrise_lights(): # STILL NEEDS TIMER OPTION!!!
         green.duty_u16(green_value)
         blue.duty_u16(blue_value)
 
-def auto_off(timer): # trying to avoi sleeping in the current version. It can cause the system to hang.
-    # The function is not fully completed. Still need to fix the error generated when selecting the time.
-    global thread_flag
-    if thread_flag == False:
+def auto_off(timer):
+    try:
+        global thread_flag, isOn
+        #print(f"auto_off: timer={timer}, isOn={isOn}, thread_flag={thread_flag}") # Debugging
+        auto_off_chunks = 1 
+        duration = 0
         if timer == "test":
-            time.sleep(10)
             led_setting_confirm_flash()
         elif timer == "one":
             duration = 3600
@@ -520,8 +539,19 @@ def auto_off(timer): # trying to avoi sleeping in the current version. It can ca
             duration = 10800
         elif timer == "six":
             duration = 21600
-    else:
-        pass
+        else:
+            pass
+
+        if isOn and not thread_flag:
+            for i in range(duration // auto_off_chunks):
+                if thread_flag:
+                    return
+                print(f"Chunk {i}")
+                time.sleep(auto_off_chunks)
+        
+        lights_off()
+    except Exception as e:
+        print(f"Error in auto_off: {e}")
 
 def motion_detection(): # NOTES: Still needs to be tested if it's actilly working on the motion detection
     # Last left off adding the debugging to see where its getting to and if the flag is changing accordingly.
@@ -729,6 +759,7 @@ def web_page(): #NOTES: Test without the javascript and see of that helps the pa
         </div>
         <div class = "version-update">
             <div class="version-display">
+                <p>WebApp Version: 1.5.0</p>
                 <p>Controller Version: <span id="currentVersion">Loading...</span></p>
             </div>
             <p id="updateMessage">{{ Not Checked }}</p>
@@ -737,130 +768,13 @@ def web_page(): #NOTES: Test without the javascript and see of that helps the pa
 		</div>
         <p>Note from the developer: When you select an option where the lights have a delay </p>
         <p>(i.e., sunrise or auto off timer) the lights will flash teal to confirm the action was successful. </p>
-        <script>
-            var isOn = false;
-            var current_color = "softwhite";
-            
-            window.onload = function() {
-                setTimeout(fetchCurrentVersion, 5000); // Waits 5 seconds before calling
-                document.querySelector('.button-container').addEventListener('click', function(event) {
-                    if(event.target.classList.contains('button')) {
-                        if(event.target.hasAttribute('data-color')) {
-                            change_color(event.target.getAttribute('data-color'));
-                        } else if(event.target.hasAttribute('data-brightness')) {
-                            changeBrightness(event.target.getAttribute('data-brightness'));
-                        } else if(event.target.hasAttribute('data-timer')) {
-                            auto_off(event.target.getAttribute('data-timer'));
-                        }
-                    }
-                });
-            };
 
-            function updateUI() {
-                // Update the UI elements based on the current state
-                var button = document.getElementById("toggleButton");
-                button.innerHTML = isOn ? "ON" : "OFF";
-                button.className = isOn ? "button on" : "button off";
-
-                // Update color buttons or other elements as needed
-            }
-            
-            function toggleLED() {
-                var button = document.getElementById("toggleButton");
-                if (isOn) {
-                    button.innerHTML = "OFF";
-                    button.className = "button off";
-                    isOn = false;
-                    change_color('off');
-                    makeRequest('/led_off');
-                } else {
-                    button.innerHTML = "ON";
-                    button.className = "button on";
-                    isOn = true;
-                    change_color(current_color);
-                }
-            }
-
-            function change_color(color) {
-                console.log("Trying to change color to: " + color); // Debugging line
-                if (isOn) {
-                    makeRequest('/change_color?color=' + color);
-                }
-            }
-            
-            function changeBrightness(brightnessChoice) {
-                console.log("Selected brightness: " + brightnessChoice);
-                if (isOn) {
-                    makeRequest('/change_brightness?brightness=' + brightnessChoice);
-                }
-            }
-            
-            function auto_off(timer) {
-                console.log("Selected Timer: " + timer);
-                if (isOn) {
-                    makeRequest('/auto_off?timer=' + timer);
-                }
-            }
-            
-            async function fetchCurrentVersion() {
-                try {
-                    let response = await fetch('/current_version');
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    let data = await response.text();
-                    document.getElementById('currentVersion').innerText = data;
-                } catch (error) {
-                    document.getElementById('currentVersion').innerText = "Error: " + error.message;
-                }
-            }
-            
-            function checkUpdates() {
-                fetch('/check_update')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(data => {
-                    document.getElementById('updateMessage').innerText = data;
-                    // If "Version" is found in the response, show the update button
-                    if (data.includes("Version")) {
-                        document.getElementById('updateButton').style.display = 'inline-block';
-                    } else {
-                        document.getElementById('updateButton').style.display = 'none';
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('updateMessage').innerText = "Error: " + error.message;
-                });
-            }
-
-            function updateSoftware() {
-                fetch('/update_software')
-                .then(response => response.text())
-                .then(data => {
-                    document.getElementById('updateMessage').innerText = data;
-                });
-            }
-
-            let debounceTimer;
-            function makeRequest(url) {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open("GET", url, true);
-                    xhr.send();
-                }, 300); // Debounce for 300ms
-            }
-        </script>
     </body>
     </html>
     """
     return html
 
-def parse_request(request):
+def parse_request_DEPRECATED(request):
     request = str(request)
     if "/change_color" in request:
         color_start = request.find("/change_color?color=") + len("/change_color?color=")
@@ -880,9 +794,9 @@ def parse_request(request):
         auto_off_start = request.find("/auto_off?timer=") + len("/auto_off?timer=")
         auto_off_end = request.find(" ", auto_off_start)
         auto_off_choice = request[auto_off_start:auto_off_end]
-        print("Auto-Off Timer:", auto_off_choice)
+        print("Auto-Off Timer:", str(auto_off_choice))
         return auto_off(auto_off_choice)
-    
+    # Software Updates
     if "/check_update" in request:
         return check_for_update()
     if "/update_software" in request:
@@ -891,7 +805,52 @@ def parse_request(request):
         return str(deliever_local_version_to_web_page())
     return ''
 
-def start_web_server_OLD(): # TESTING OPTOMIZED SERVER LOGIC
+def parse_request(request):
+    request = str(request)
+
+    def extract_parameter(request, prefix):
+        start = request.find(prefix)
+        if start == -1:
+            return None
+        start += len(prefix)
+        end = request.find(" ", start)
+        extracted_value = request[start:end] if end != -1 else request[start:]
+        #print(f"extract_parameter: prefix={prefix}, extracted_value={extracted_value}") # Debugging
+        return extracted_value
+
+    if "/change_color" in request:
+        color = extract_parameter(request, "/change_color?color=")
+        if color:
+            print("Parsed Color:", color)
+            return handle_change_color_request(color)
+
+    if "/change_brightness" in request:
+        brightness = extract_parameter(request, "/change_brightness?brightness=")
+        if brightness:
+            print("Parsed Brightness:", brightness)
+            return handle_change_brightness_request(brightness)
+
+    if "/led_off" in request:
+        return handle_led_off_request()
+
+    if "/auto_off" in request:
+        timer = extract_parameter(request, "/auto_off?timer=")
+        if timer:
+            print("Auto-Off Timer:", timer)
+            return auto_off(timer)
+
+    if "/check_update" in request:
+        return check_for_update()
+
+    if "/update_software" in request:
+        return software_update_request()
+
+    if "/current_version" in request:
+        return str(deliever_local_version_to_web_page())
+
+    return ''
+
+def start_web_server_DEPRECATED(): # TESTING OPTOMIZED SERVER LOGIC
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', 80))
