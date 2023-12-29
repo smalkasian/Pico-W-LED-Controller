@@ -306,7 +306,7 @@ def connect_wifi():
         print("Connection Failed: An exception occurred -", e)
 
 #-----------------------------------OTA UPDATE FUNCTIONS----------------------------
-        
+
 def check_remote_version(): #CHECKS FOR BUILD VERSION UPDATES ONLY!!! DO NOT PASTE THIS INTO SRC
     try:
         remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
@@ -527,7 +527,7 @@ def motion_detection():
     # Initialize the brightness to 0 (lights off)
     brightness = 0
     set_light_brightness(brightness)
-    
+
     if thread_flag:
         return
 

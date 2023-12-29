@@ -4,10 +4,9 @@
 #This source code is licensed under the BSD-style license found in the
 #LICENSE file in the root directory of this source tree. 
 
-#-----------------------------READ ME BEFORE USING!!!!!!-----------------------------
+#-----------------------------READ BEFORE USING!!!!!!-----------------------------
 # This code should run just fine on a pico. I am in the process of adding more colors 
 # and eventually a color slider bar. 
-
 # If you see a section that has (!!), it means you need to update that information with 
 # your own otherwise the code will not work.
 #
@@ -15,9 +14,9 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - PUBLIC VERSION - 1.4.7")
+print("STABLE - SRC VERSION - 1.5.0")
 def deliver_current_version():
-    __version__ = (1,4,7)
+    __version__ = (1,5,0)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
@@ -27,6 +26,9 @@ def deliver_current_version():
 # • Fixed page load times from 7 secs to 4 secs.
 # UPDATES: 1.4.7
 # • Added "yellow, cyan, magenta, teal, pink, amber, lime" colors.
+# UPDATES: 1.5.0
+# • Added logic for optional motion detector feature.
+# • Added version tracking to the webpage
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster. (FIXED? Issue was that led only looped once.)
@@ -36,8 +38,8 @@ def deliver_current_version():
 # (IN 1.4.4 ON) When switching from strobe to fade, generates a memeory error. Needs to press btn twice.
 
 # IN PROGRESS/NEEDS TESTING:
-# - Adding timer button that turns the lights off. Not sure how to handle. Threadding?
-# - Flashing lights between colors.
+# - Feature to turn on the lights as a virtual sunrise/sunset. Let the user set the time range they power on.
+
 #------------------------------------IMPORTS-----------------------------------------
 
 try:
@@ -59,17 +61,19 @@ import uos
 import machine
 from system_utilities import update_software
 
-
 #----------------------------INITIAL VAR ASSIGNMENT/TASKS---------------------------
 
 # LED GPIO ASSIGNMENT (!!
 red = PWM(Pin(0))
 green = PWM(Pin(1))
 blue = PWM(Pin(2))
+white = PWM(Pin(3)) #
+pir = Pin(5, Pin.IN, Pin.PULL_UP)
 
 red.freq(1000)
 green.freq(1000)
 blue.freq(1000)
+white.freq(1000)
 
 isOn = False
 brightness = 65025
@@ -89,7 +93,22 @@ def yes_validator():
             return userYesNo
         elif userYesNo == 'no':
             return userYesNo
-        
+
+def reconnection_number_choice_validator():
+    user_choice = input("[1] - Yes \n[2] - No \n[3] - Reconnect \nChoose an option: ")
+    while user_choice not in ["1", "2", "3"]:
+        user_choice = input("Invalid entry: Please enter a valid number: ")
+    else:
+        if user_choice == '1':
+            print("")
+            return 1
+        elif user_choice == '2':
+            print("")
+            return 2
+        elif user_choice == '3':
+            print("")
+            return 3
+
 def number_option_validator():
     user_choice = input("Choose a network -- [1] [2] [3] [4] [5]: ")
     while user_choice not in ["1", "2", "3", "4", "5"]:
@@ -115,6 +134,7 @@ def lights_off():
     red.duty_u16(0)
     green.duty_u16(0)
     blue.duty_u16(0)
+    white.duty_u16(0)
 
 def led_success_flash():
     for i in range(10):
@@ -123,7 +143,6 @@ def led_success_flash():
         green.duty_u16(0)
         time.sleep(0.1)
     green.duty_u16(65025)
-    time.sleep(1)
     lights_off()
 
 def led_update_status():
@@ -142,15 +161,21 @@ def led_update_status():
         time.sleep(0.1)
 
 def led_fail_flash():
-    time.sleep(2)
     lights_off()
     for i in range(5):
         red.duty_u16(65025)
         time.sleep(0.1)
         red.duty_u16(0)
         time.sleep(0.1)
-        red.duty_u16(0)
-    gc.collect()
+
+def led_setting_confirm_flash():
+    for i in range(4):
+        blue.duty_u16(65025)
+        green.duty_u16(65025)
+        time.sleep(0.1)
+        blue.duty_u16(0)
+        green.duty_u16(0)
+    time.sleep(1.5)
 
 def load_wifi_credentials():
     DEFAULT_CREDENTIALS = {
@@ -182,8 +207,8 @@ def update_wireless_password(ssid, password):
     print("--------------------------------")
     print("")
     print("Would you like to update the password?")
-    update_credentials = yes_validator()
-    if update_credentials == "yes":
+    update_credentials = reconnection_number_choice_validator()
+    if update_credentials == 1:
         new_ssid = input("Enter your WiFi SSID: ")
         new_password = input("Enter your WiFi password: ")
         new_credentials = {"ssid": new_ssid, "password": new_password}
@@ -209,10 +234,11 @@ def update_wireless_password(ssid, password):
             max_retries -= 1
             time.sleep(0.1)
         if not station.isconnected():
-            print("Failed to connect with the new credentials. Trying again in 5 seconds.")
-            time.sleep(5)
+            print("Failed to connect with the new credentials. Will try in 2 seconds.")
+            led_fail_flash()
+            time.sleep(3)
             connect_wifi()
-    elif update_credentials == "no":
+    elif update_credentials == 2:
         print("Device will not work without WiFi.")
         print("Powering Down.")
         lights_off()
@@ -225,6 +251,8 @@ def update_wireless_password(ssid, password):
         station.disconnect()
         station.active(False)
         lights_off()
+    elif update_credentials == 3:
+        connect_wifi()
 
 def connect_wifi():
     data = load_wifi_credentials()
@@ -273,11 +301,11 @@ def connect_wifi():
     except Exception as e:
         print("Connection Failed: An exception occurred -", e)
 
-#------------------------------------GENERAL FUNCTIONS------------------------------
+#-----------------------------------OTA UPDATE FUNCTIONS----------------------------
 
 def check_remote_version(): #CHECKS FOR BUILD VERSION UPDATES ONLY!!! DO NOT PASTE THIS INTO SRC
     try:
-        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/build/PicoOS.py'
+        remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = urequests.get(remote_version_url, headers=headers)
         print("Status Code:", response.status_code)
@@ -353,6 +381,8 @@ def generate_updated_web_page():
             updated_html = "Error: " + str(e)  # Or provide some default/fallback HTML here (Maybe add in the future?)
     return updated_html
 
+#------------------------------------GENERAL FUNCTIONS------------------------------
+
 def set_brightness(brightnessChoice):
     global brightness
     if brightnessChoice == "bright":
@@ -366,17 +396,15 @@ def set_brightness(brightnessChoice):
     LED_colors()
     return 'Brightness successfully changed'
 
-def change_color(color): # MAKE SURE STROBE FUNCTION IS FIXED TO PASS BRIGHTNESS IN
+def change_color(color):
     global current_color, isOn, thread_flag
-    if color in ["red", "green", "blue", "white", "purple", "orange", "softwhite", "fade", "strobe", "yellow", "cyan", "magenta", "teal", "pink", "amber", "lime"]:
+    if color in ["fade", "strobe", "sunrise", "motion", "red", "green", "blue", "white", "purple", "orange", "softwhite", "yellow", "cyan", "magenta", "teal", "pink", "amber", "lime"]:
         isOn = True
         current_color = color
     elif color == "off":
         isOn = False
         thread_flag = True
-        red.duty_u16(0)
-        green.duty_u16(0)
-        blue.duty_u16(0)
+        lights_off()
     else:
         return 'Invalid color'
     LED_colors()
@@ -467,25 +495,54 @@ def strobe_lights():
             green.duty_u16(brightness)
             blue.duty_u16(brightness)
 
-def auto_off(timer): # NEEDS TO BE FIXED! NOT TESTED!
-    global thread_flag
-    if thread_flag == False:
-        if timer == "hour":
-            time.sleep(100)
-            lights_off()
-        elif timer == "2_hours":
-            time.sleep(200)
-            lights_off()
-        elif timer == "5_hours":
-            time.sleep(500)
-            lights_off()
-    else:
-        pass
+def motion_detection():
+    global current_color, thread_flag
+    MAX_BRIGHTNESS = 65025
+    INCREMENT = 500  # Adjust for faster or slower fade
+    DECREMENT = 500  # Adjust for faster or slower dimming
+    SLEEP_INTERVAL = 0.1  # Adjust for speed of fade
+    MOTION_DETECTED_DURATION = 60  # Time in seconds lights stay on after motion detected
+
+    def set_light_brightness(brightness_value):
+        red.duty_u16(brightness_value)
+        green.duty_u16(brightness_value)
+        blue.duty_u16(brightness_value)
+        white.duty_u16(brightness_value)
+
+    def adjust_brightness(target_brightness):
+        nonlocal brightness
+        while brightness != target_brightness:
+            if current_color != 'motion' or thread_flag:
+                return
+            step = INCREMENT if brightness < target_brightness else -DECREMENT
+            brightness = max(min(brightness + step, MAX_BRIGHTNESS), 0)
+            set_light_brightness(brightness)
+            time.sleep(SLEEP_INTERVAL)
+
+    brightness = 0
+    set_light_brightness(brightness)
+
+    if thread_flag:
+        return
+
+    while current_color == 'motion':
+        if pir.value() == 1:
+            print("Motion detected")
+            adjust_brightness(MAX_BRIGHTNESS)
+            time.sleep(MOTION_DETECTED_DURATION)
+        else:
+            if brightness > 0:
+                print("No movement detected - dimming lights")
+                adjust_brightness(0)
+
+        time.sleep(.5)
 
 def LED_colors(): 
     global thread_flag
     if isOn:
         thread_flag = True
+        gc.collect()
+        lights_off()
         print(f"Updating LED. Color: {current_color}, Brightness: {brightness}, isOn: {isOn}")
         if current_color == "red":
             red.duty_u16(brightness)
@@ -503,6 +560,7 @@ def LED_colors():
             red.duty_u16(brightness)
             green.duty_u16(brightness)
             blue.duty_u16(brightness)
+            white.duty_u16(brightness)
         elif current_color == "purple":
             red.duty_u16(int(brightness*0.6))
             green.duty_u16(0)
@@ -515,6 +573,7 @@ def LED_colors():
             red.duty_u16(int(brightness / 65025 * 65535))
             green.duty_u16(int(brightness*0.7 / 65025 * 65535))
             blue.duty_u16(int(brightness*0.6 / 65025 * 65535))
+            white.duty_u16(brightness)
         elif current_color == "yellow":
             red.duty_u16(brightness)
             green.duty_u16(brightness)
@@ -545,12 +604,18 @@ def LED_colors():
             blue.duty_u16(0)
         elif current_color == "fade":
             print(thread_flag)
-            gc.collect()
             _thread.start_new_thread(fade_lights, ())
         elif current_color == "strobe":
+            thread_flag = False
             print(thread_flag)
-            gc.collect()
             _thread.start_new_thread(strobe_lights, ())
+        elif current_color == "sunrise":
+            thread_flag = False
+            _thread.start_new_thread(sunrise_lights, ())
+        elif current_color == "motion":
+            print(thread_flag)
+            thread_flag = False
+            _thread.start_new_thread(motion_detection, ())
         else:
             led_fail_flash()
 
@@ -568,19 +633,6 @@ def handle_led_off_request():
     thread_flag = True
     return change_color(current_color)
 
-def web_page_UNUSED(): 
-    try:
-        with open('index.html', 'r') as file:
-            html = file.read()
-        html = html.format(str(isOn).lower(), current_color)
-        return html
-    except OSError as e:
-        print('OSError:', str(e)) 
-    except KeyError as ke:
-        print('KeyError:', str(ke))
-    except Exception as e:
-        print('Exception:', str(e))
-
 def web_page():
     html = """
     <!DOCTYPE html>
@@ -588,7 +640,13 @@ def web_page():
     <head>
         <title>LED Light Control</title>
         <style>
-            body{text-align:center;font-family:Arial,sans-serif;}h1{margin-top:20px;font-size:4vw;}h2,h3{font-size:3vw;}h2{font-weight:bold;}h3{font-weight:normal;}.button_container{display:flex;justify-content:center;align-items:center;}.button{display:inline-block;padding:10px 20px;margin:20px;border:none;border-radius:6px;cursor:pointer;font-size:4vw;text-align:center;outline:none;background-color:#ccc;color:#000;}.button:hover{background-color:#999;}.on{background-color:rgb(48,107,255);color:#fff;}.off{background-color:rgb(215,215,215);}.centered-text{display:flex;justify-content:center;align-items:center;text-align:center;padding-bottom:50px;}.button-box{margin:10px;padding:10px 50px 20px;background-color:#fff;border-radius:11px;text-align:center;box-shadow:2px 2px 30px rgba(0,0,0,0.2);max-width:auto;}.version-update{padding-top:50px;}
+            body { font-family: Arial, sans-serif; text-align: center; }
+            .button { padding: 10px 20px; margin: 20px 0; border: none; border-radius: 6px; cursor: pointer; font-size: 2em; background-color: #ccc; color: #000; }
+            .button:hover { background-color: #999; }
+            .button.on { background-color: rgb(48,107,255); color: #fff; }
+            .button.off { background-color: rgb(215,215,215); }
+            .button-box { padding: 10px; margin: 10px; background-color: #fff; border-radius: 11px; box-shadow: 2px 2px 30px rgba(0,0,0,0.2); }
+            h2, h3 { margin: 15px 0; }
         </style>
     </head>
     <body>
@@ -612,17 +670,31 @@ def web_page():
                 <button class="button" data-color='pink'>Pink</button>
                 <button class="button" data-color='amber'>Amber</button>
                 <button class="button" data-color='lime'>Lime</button>
+                <br>
+                <h3>Automatic Functions</h3>
                 <button class="button" data-color='fade'>Color Fade</button>
                 <button class="button" data-color='strobe'>Color Strobe</button>
+                <button class="button" data-color='motion'>Motion Detection</button>
+                <!-- ADD IN IN VERSION 1.6.0
+                <button class="button" data-color='sunrise'>Simulate Sunrise</button>
+                -->
                 <br>
                 <h3>Brightness</h3>
                 <button class="button" data-brightness='bright'>Bright</button>
                 <button class="button" data-brightness='medium'>Medium</button>
                 <button class="button" data-brightness='dim'>Dim</button>
+                <!-- ADD IN IN VERSION 1.6.0
+                <h3>Auto-Off Timer</h3>
+                <button class="button" data-timer='test'>Test</button>
+                <button class="button" data-timer='one'>1-Hour</button>
+                <button class="button" data-timer='three'>3-Hours</button>
+                <button class="button" data-timer='six'>6-Hours</button>
+                --> 
             </div>
         </div>
         <div class = "version-update">
             <div class="version-display">
+                <p>Web Version: 1.3.1</p>
                 <p>Controller Version: <span id="currentVersion">Loading...</span></p>
             </div>
             <p id="updateMessage">{{ Not Checked }}</p>
@@ -641,20 +713,17 @@ def web_page():
                             change_color(event.target.getAttribute('data-color'));
                         } else if(event.target.hasAttribute('data-brightness')) {
                             changeBrightness(event.target.getAttribute('data-brightness'));
+                        } else if(event.target.hasAttribute('data-timer')) {
+                            auto_off(event.target.getAttribute('data-timer'));
                         }
                     }
                 });
             };
-
             function updateUI() {
-                // Update the UI elements based on the current state
                 var button = document.getElementById("toggleButton");
                 button.innerHTML = isOn ? "ON" : "OFF";
                 button.className = isOn ? "button on" : "button off";
-
-                // Update color buttons or other elements as needed
             }
-            
             function toggleLED() {
                 var button = document.getElementById("toggleButton");
                 if (isOn) {
@@ -670,20 +739,21 @@ def web_page():
                     change_color(current_color);
                 }
             }
-
             function change_color(color) {
-                console.log("Trying to change color to: " + color); // Debugging line
                 if (isOn) {
                     makeRequest('/change_color?color=' + color);
                 }
             }
-            
             function changeBrightness(brightnessChoice) {
-                console.log("Selected brightness: " + brightnessChoice);
                 if (isOn) {
                     makeRequest('/change_brightness?brightness=' + brightnessChoice);
                 }
             }
+            function auto_off(timer) {
+                if (isOn) {
+                    makeRequest('/auto_off?timer=' + timer);
+                }
+            }          
             async function fetchCurrentVersion() {
                 try {
                     let response = await fetch('/current_version');
@@ -696,7 +766,6 @@ def web_page():
                     document.getElementById('currentVersion').innerText = "Error: " + error.message;
                 }
             }
-            
             function checkUpdates() {
                 fetch('/check_update')
                 .then(response => {
@@ -744,41 +813,60 @@ def web_page():
 
 def parse_request(request):
     request = str(request)
+
+    def extract_parameter(request, prefix):
+        start = request.find(prefix)
+        if start == -1:
+            return None
+        start += len(prefix)
+        end = request.find(" ", start)
+        extracted_value = request[start:end] if end != -1 else request[start:]
+        #print(f"extract_parameter: prefix={prefix}, extracted_value={extracted_value}") # Debugging
+        return extracted_value
+
     if "/change_color" in request:
-        color_start = request.find("/change_color?color=") + len("/change_color?color=")
-        color_end = request.find(" ", color_start)
-        color = request[color_start:color_end]
-        print("Parsed Color:", color)
-        return handle_change_color_request(color)
+        color = extract_parameter(request, "/change_color?color=")
+        if color:
+            print("Parsed Color:", color)
+            return handle_change_color_request(color)
+
     if "/change_brightness" in request:
-        brightness_start = request.find("/change_brightness?brightness=") + len("/change_brightness?brightness=")
-        brightness_end = request.find(" ", brightness_start)
-        brightness_choice = request[brightness_start:brightness_end]
-        print("Parsed Brightness:", brightness_choice)
-        return handle_change_brightness_request(brightness_choice)
+        brightness = extract_parameter(request, "/change_brightness?brightness=")
+        if brightness:
+            print("Parsed Brightness:", brightness)
+            return handle_change_brightness_request(brightness)
+
     if "/led_off" in request:
         return handle_led_off_request()
-    # if "/auto_off" in request: # THIS NEEDS TO BE FIXED
-    #     color_start = request.find("/change_color?color=") + len("/change_color?color=")
-    #     color_end = request.find(" ", color_start)
-    #     timer = request[color_start:color_end]
-    #     print("Lights off in:", timer)
-    #     return auto_off(timer_number) # THIS NEEDS TO PASS IN THE REQUEST
-    
+
+    if "/auto_off" in request:
+        timer = extract_parameter(request, "/auto_off?timer=")
+        if timer:
+            print("Auto-Off Timer:", timer)
+            return auto_off(timer)
+
     if "/check_update" in request:
         return check_for_update()
+
     if "/update_software" in request:
         return software_update_request()
+
     if "/current_version" in request:
         return str(deliever_local_version_to_web_page())
+
     return ''
 
-def start_web_server_OLD(): # TESTING OPTOMIZED SERVER LOGIC
+def start_web_server():
+    # Declare static_html at the beginning of the function
+    static_html = web_page()  # Ensure this function returns the HTML content
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', 80))
     s.listen(5)
+
     while True:
+        conn, addr = None, None
         try:
             conn, addr = s.accept()
             conn.settimeout(3.0)
@@ -786,70 +874,45 @@ def start_web_server_OLD(): # TESTING OPTOMIZED SERVER LOGIC
             request = conn.recv(1024)
             request = request.decode('utf-8')
             conn.settimeout(None)
-            response = ''  
-            if "GET / " in request:
-                response = generate_updated_web_page()
-                response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nConnection: close\r\n\r\n"
-            else:
-                response = parse_request(request)
-                response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
+
+            # Call handle_request with the static_html as an argument
+            response, content_type = handle_request(request, static_html)
+
+            # Prepare and send the response
+            response_headers = f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}; charset=UTF-8\r\nConnection: close\r\n\r\n"
             full_response = response_headers + response
             conn.sendall(full_response.encode('utf-8'))
-            conn.close()
-        except OSError as e:
-            conn.close()
-            print('Connection closed due to OSError: ', str(e)) 
-        except Exception as e:
-            conn.close()
-            print('Connection closed due to Exception: ', str(e))
-    return s
-
-def start_web_server():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('', 80))
-    s.listen(5)
-
-    # Pre-load static content into memory
-    static_html = web_page()
-
-    while True:
-        try:
-            conn, addr = s.accept()
-            conn.settimeout(3.0)
-            print('Received HTTP GET connection request from %s' % str(addr))
-            request = conn.recv(1024)
-            request = request.decode('utf-8')
-            conn.settimeout(None)
-            
-            # Splitting request to get the path
-            path = request.split(" ")[1]
-
-            if path == "/":
-                # Only replace dynamic content here
-                dynamic_content = {
-                    '{{ current_version }}': str(deliever_local_version_to_web_page()),
-                    '{{ update_message }}': check_for_update()
-                }
-                for key, value in dynamic_content.items():
-                    static_html = static_html.replace(key, value)
-                response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nConnection: close\r\n\r\n"
-                full_response = response_headers + static_html
-            else:
-                response = parse_request(request)
-                response_headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
-                full_response = response_headers + response
-                
-            conn.sendall(full_response.encode('utf-8'))
-            conn.close()
 
         except OSError as e:
-            conn.close()
             print('Connection closed due to OSError: ', str(e)) 
-        except Exception as e:
-            conn.close()
-            print('Connection closed due to Exception: ', str(e))
-    return s
+        finally:
+            if conn:
+                conn.close()
+        time.sleep(0.01) 
+
+def handle_request(request, static_html):
+    """
+    Handle different request paths efficiently.
+    Takes the request and static_html as arguments.
+    Returns the response content and content type.
+    """
+    path = request.split(" ")[1]
+    # Handle root path
+    if path == "/":
+        # Reuse the pre-loaded static HTML, only replace dynamic content
+        dynamic_content = {
+            '{{ current_version }}': str(deliever_local_version_to_web_page()),
+            '{{ update_message }}': check_for_update()
+        }
+        response = static_html
+        for key, value in dynamic_content.items():
+            response = response.replace(key, value)
+        return response, "text/html"
+
+    # Handle other paths
+    else:
+        response = parse_request(request)
+        return response, "text/plain"
 
 def pico_os_main():
     s = ""
@@ -879,7 +942,8 @@ def pico_os_main():
         print(f"Unexpected error: {e}")
 
 #---------------------------------MAIN PROGRAM------------------------------------------
-# FOR DEBUG USE
-gc.collect()
-connect_wifi()
-pico_os_main()
+# FOR DEBUG USE. Allows software to run from here rather than main.py
+# Comment out before pushing to devices.
+# gc.collect()
+# connect_wifi()
+# pico_os_main()
