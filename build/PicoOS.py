@@ -14,7 +14,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("UNSTABLE - BUILT VERSION - BETA 1.5.0-b")
+print("UNSTABLE - BUILT VERSION - BETA 1.5.0-c")
 def deliver_current_version():
     __version__ = (1,5,0)
     return __version__
@@ -499,7 +499,52 @@ def strobe_lights():
             green.duty_u16(brightness)
             blue.duty_u16(brightness)
 
-# UPDATES: 1.5.0 (START) ----------------------------------------------------------------
+def motion_detection():
+    global current_color, thread_flag
+    MAX_BRIGHTNESS = 65025
+    INCREMENT = 500  # Adjust for faster or slower fade
+    DECREMENT = 500  # Adjust for faster or slower dimming
+    SLEEP_INTERVAL = 0.1  # Adjust for speed of fade
+    MOTION_DETECTED_DURATION = 3  # Time in seconds lights stay on after motion detected
+
+    def set_light_brightness(brightness_value):
+        # Replace with your actual LED control logic
+        red.duty_u16(brightness_value)
+        green.duty_u16(brightness_value)
+        blue.duty_u16(brightness_value)
+        white.duty_u16(brightness_value)
+
+    def adjust_brightness(target_brightness):
+        nonlocal brightness
+        while brightness != target_brightness:
+            if current_color != 'motion' or thread_flag:
+                return
+            step = INCREMENT if brightness < target_brightness else -DECREMENT
+            brightness = max(min(brightness + step, MAX_BRIGHTNESS), 0)
+            set_light_brightness(brightness)
+            time.sleep(SLEEP_INTERVAL)
+
+    # Initialize the brightness to 0 (lights off)
+    brightness = 0
+    set_light_brightness(brightness)
+    
+    if thread_flag:
+        return
+
+    while current_color == 'motion':
+        # Check PIR sensor value (assuming 1 is motion detected)
+        if pir.value() == 1:
+            print("Motion detected")
+            adjust_brightness(MAX_BRIGHTNESS)
+            time.sleep(MOTION_DETECTED_DURATION)  # Keep lights on for a set duration
+        else:
+            if brightness > 0:  # Only dim if the lights are on
+                print("No movement detected - dimming lights")
+                adjust_brightness(0)
+
+        time.sleep(.5)
+
+# UPDATES: 1.6.0 (START) ----------------------------------------------------------------
 
 def sunrise_lights(): # STILL NEEDS TIMER OPTION!!!
     led_setting_confirm_flash()
@@ -527,76 +572,38 @@ def sunrise_lights(): # STILL NEEDS TIMER OPTION!!!
 
 def auto_off(timer):
     try:
-        global thread_flag, isOn
-        #print(f"auto_off: timer={timer}, isOn={isOn}, thread_flag={thread_flag}") # Debugging
-        auto_off_chunks = 1 
-        duration = 0
+        global isOn, thread_flag
+        print(f"auto_off: timer={timer}, isOn={isOn}, thread_flag={thread_flag}")  # Debugging
+
+        # Define the duration based on the timer value
+        duration_mapping = {
+            "test": 0,  # Assuming you want a quick confirmation for test
+            "one": 3600,
+            "three": 10800,
+            "six": 21600
+        }
+
+        # Get the duration from the mapping, default to None if not found
+        duration = duration_mapping.get(timer)
+
+        if duration is None:
+            print(f"Invalid timer value: {timer}")
+            return
+
+        # If 'test', perform a quick confirmation action
         if timer == "test":
             led_setting_confirm_flash()
-        elif timer == "one":
-            duration = 3600
-        elif timer == "three":
-            duration = 10800
-        elif timer == "six":
-            duration = 21600
-        else:
-            pass
+            return  # Exit the function after the test confirmation
 
+        # Perform the auto-off functionality
         if isOn and not thread_flag:
-            for i in range(duration // auto_off_chunks):
-                if thread_flag:
-                    return
-                print(f"Chunk {i}")
-                time.sleep(auto_off_chunks)
-        
-        lights_off()
+            time.sleep(duration)  # Sleep for the duration
+            lights_off()  # Turn off the lights after the duration
+
     except Exception as e:
         print(f"Error in auto_off: {e}")
 
-def motion_detection(): # NOTES: Still needs to be tested if it's actilly working on the motion detection
-    # Last left off adding the debugging to see where its getting to and if the flag is changing accordingly.
-    global current_color, thread_flag
-    MAX_BRIGHTNESS = 65025
-    INCREMENT = 500  # Adjust this for a faster or slower fade
-    DECREMENT = 500  # Adjust this for a faster or slower dimming
-    SLEEP_INTERVAL = 0.1  # Adjust this for a faster or slower fade
-    lights_off()
-    print("Successfully started motion detection mode")
-    brightness = 0
-    if thread_flag == False:
-        while current_color == 'motion':
-            if pir.value() == 0:
-                print("Motion detected")
-                print(f"Thread Flag: {thread_flag}. PIR Sensor Value:", pir.value()) #Added for debugging
-                while brightness < MAX_BRIGHTNESS:
-                    if current_color != 'motion' or thread_flag:
-                        return
-                    brightness += INCREMENT
-                    brightness = min(brightness, MAX_BRIGHTNESS)
-                    red.duty_u16(brightness)
-                    green.duty_u16(brightness)
-                    blue.duty_u16(brightness)
-                    white.duty_u16(brightness)
-                    time.sleep(SLEEP_INTERVAL)
-                print('simulate lights on for 60 seconds')
-                time.sleep(5)
-            else:
-                print("Waiting for movement")
-                print('simulating them dimming')
-                while brightness > 0:
-                    if current_color != 'motion' or thread_flag:
-                        return
-                    brightness -= DECREMENT
-                    brightness = max(brightness, 0)
-                    red.duty_u16(brightness)
-                    green.duty_u16(brightness)
-                    blue.duty_u16(brightness)
-                    white.duty_u16(brightness)
-                    time.sleep(SLEEP_INTERVAL)
-                print('waiting briefly before checking again for movement')
-                time.sleep(1)
-    else:
-        return
+        # Add additional error handling as needed
 
 # UPDATES (END) ----------------------------------------------------------------
 
@@ -669,11 +676,15 @@ def LED_colors():
             print(thread_flag)
             _thread.start_new_thread(fade_lights, ())
         elif current_color == "strobe":
+            thread_flag = False
             print(thread_flag)
             _thread.start_new_thread(strobe_lights, ())
         elif current_color == "sunrise":
+            thread_flag = False
             _thread.start_new_thread(sunrise_lights, ())
         elif current_color == "motion":
+            print(thread_flag)
+            thread_flag = False
             _thread.start_new_thread(motion_detection, ())
         else:
             led_fail_flash()
@@ -705,17 +716,20 @@ def web_page_UNUSED(): # CAN'T GET THIS TO WORK.
     except Exception as e:
         print('Exception:', str(e))
 
-def web_page(): #NOTES: Test without the javascript and see of that helps the page load faster.
-    # Also add the motion and sunrise button to a new page or button section.
-    # Add javascript code for the auto off setting. Not sure how to handle the threading aspect of it...
-    # Maybe try adding a new thread for each of those? I might need to add in a parse() feature for it.
+def web_page():
     html = """
     <!DOCTYPE html>
     <html>
     <head>
         <title>LED Light Control</title>
         <style>
-            body{text-align:center;font-family:Arial,sans-serif;}h1{margin-top:20px;font-size:4vw;}h2,h3{font-size:3vw;}h2{font-weight:bold;}h3{font-weight:normal;}.button_container{display:flex;justify-content:center;align-items:center;}.button{display:inline-block;padding:10px 20px;margin:20px;border:none;border-radius:6px;cursor:pointer;font-size:4vw;text-align:center;outline:none;background-color:#ccc;color:#000;}.button:hover{background-color:#999;}.on{background-color:rgb(48,107,255);color:#fff;}.off{background-color:rgb(215,215,215);}.centered-text{display:flex;justify-content:center;align-items:center;text-align:center;padding-bottom:50px;}.button-box{margin:10px;padding:10px 50px 20px;background-color:#fff;border-radius:11px;text-align:center;box-shadow:2px 2px 30px rgba(0,0,0,0.2);max-width:auto;}.version-update{padding-top:50px;}
+            body { font-family: Arial, sans-serif; text-align: center; }
+            .button { padding: 10px 20px; margin: 20px 0; border: none; border-radius: 6px; cursor: pointer; font-size: 2em; background-color: #ccc; color: #000; }
+            .button:hover { background-color: #999; }
+            .button.on { background-color: rgb(48,107,255); color: #fff; }
+            .button.off { background-color: rgb(215,215,215); }
+            .button-box { padding: 10px; margin: 10px; background-color: #fff; border-radius: 11px; box-shadow: 2px 2px 30px rgba(0,0,0,0.2); }
+            h2, h3 { margin: 15px 0; }
         </style>
     </head>
     <body>
@@ -744,31 +758,137 @@ def web_page(): #NOTES: Test without the javascript and see of that helps the pa
                 <button class="button" data-color='fade'>Color Fade</button>
                 <button class="button" data-color='strobe'>Color Strobe</button>
                 <button class="button" data-color='motion'>Motion Detection</button>
+                <!-- ADD IN IN VERSION 1.6.0
                 <button class="button" data-color='sunrise'>Simulate Sunrise</button>
+                -->
                 <br>
                 <h3>Brightness</h3>
                 <button class="button" data-brightness='bright'>Bright</button>
                 <button class="button" data-brightness='medium'>Medium</button>
                 <button class="button" data-brightness='dim'>Dim</button>
+                <!-- ADD IN IN VERSION 1.6.0
                 <h3>Auto-Off Timer</h3>
                 <button class="button" data-timer='test'>Test</button>
                 <button class="button" data-timer='one'>1-Hour</button>
                 <button class="button" data-timer='three'>3-Hours</button>
                 <button class="button" data-timer='six'>6-Hours</button>
+                --> 
             </div>
         </div>
         <div class = "version-update">
             <div class="version-display">
-                <p>WebApp Version: 1.5.0</p>
+                <p>Web Version: 1.3.1</p>
                 <p>Controller Version: <span id="currentVersion">Loading...</span></p>
             </div>
             <p id="updateMessage">{{ Not Checked }}</p>
             <button class="button" onclick="checkUpdates()">Check for Updates</button>
             <button class="button" id="updateButton" style="display: none;" onclick="updateSoftware()">Update Software</button>
 		</div>
-        <p>Note from the developer: When you select an option where the lights have a delay </p>
-        <p>(i.e., sunrise or auto off timer) the lights will flash teal to confirm the action was successful. </p>
+        <script>
+            var isOn = false;
+            var current_color = "softwhite";
+            
+            window.onload = function() {
+                setTimeout(fetchCurrentVersion, 5000); // Waits 5 seconds before calling
+                document.querySelector('.button-container').addEventListener('click', function(event) {
+                    if(event.target.classList.contains('button')) {
+                        if(event.target.hasAttribute('data-color')) {
+                            change_color(event.target.getAttribute('data-color'));
+                        } else if(event.target.hasAttribute('data-brightness')) {
+                            changeBrightness(event.target.getAttribute('data-brightness'));
+                        } else if(event.target.hasAttribute('data-timer')) {
+                            auto_off(event.target.getAttribute('data-timer'));
+                        }
+                    }
+                });
+            };
+            function updateUI() {
+                var button = document.getElementById("toggleButton");
+                button.innerHTML = isOn ? "ON" : "OFF";
+                button.className = isOn ? "button on" : "button off";
+            }
+            function toggleLED() {
+                var button = document.getElementById("toggleButton");
+                if (isOn) {
+                    button.innerHTML = "OFF";
+                    button.className = "button off";
+                    isOn = false;
+                    change_color('off');
+                    makeRequest('/led_off');
+                } else {
+                    button.innerHTML = "ON";
+                    button.className = "button on";
+                    isOn = true;
+                    change_color(current_color);
+                }
+            }
+            function change_color(color) {
+                if (isOn) {
+                    makeRequest('/change_color?color=' + color);
+                }
+            }
+            function changeBrightness(brightnessChoice) {
+                if (isOn) {
+                    makeRequest('/change_brightness?brightness=' + brightnessChoice);
+                }
+            }
+            function auto_off(timer) {
+                if (isOn) {
+                    makeRequest('/auto_off?timer=' + timer);
+                }
+            }          
+            async function fetchCurrentVersion() {
+                try {
+                    let response = await fetch('/current_version');
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    let data = await response.text();
+                    document.getElementById('currentVersion').innerText = data;
+                } catch (error) {
+                    document.getElementById('currentVersion').innerText = "Error: " + error.message;
+                }
+            }
+            function checkUpdates() {
+                fetch('/check_update')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById('updateMessage').innerText = data;
+                    // If "Version" is found in the response, show the update button
+                    if (data.includes("Version")) {
+                        document.getElementById('updateButton').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('updateButton').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('updateMessage').innerText = "Error: " + error.message;
+                });
+            }
 
+            function updateSoftware() {
+                fetch('/update_software')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('updateMessage').innerText = data;
+                });
+            }
+
+            let debounceTimer;
+            function makeRequest(url) {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("GET", url, true);
+                    xhr.send();
+                }, 300); // Debounce for 300ms
+            }
+        </script>
     </body>
     </html>
     """
@@ -850,7 +970,7 @@ def parse_request(request):
 
     return ''
 
-def start_web_server_DEPRECATED(): # TESTING OPTOMIZED SERVER LOGIC
+def start_web_server_DEPRECATED_REMOVE_IN_NEXT_MAJOR_UPDATE(): # TESTING OPTOMIZED SERVER LOGIC
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', 80))
@@ -881,7 +1001,7 @@ def start_web_server_DEPRECATED(): # TESTING OPTOMIZED SERVER LOGIC
             print('Connection closed due to Exception: ', str(e))
     return s
 
-def start_web_server():
+def start_web_server_DEPRECATED():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', 80))
@@ -927,6 +1047,64 @@ def start_web_server():
             conn.close()
             print('Connection closed due to Exception: ', str(e))
     return s
+
+def start_web_server():
+    # Declare static_html at the beginning of the function
+    static_html = web_page()  # Ensure this function returns the HTML content
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', 80))
+    s.listen(5)
+
+    while True:
+        conn, addr = None, None
+        try:
+            conn, addr = s.accept()
+            conn.settimeout(3.0)
+            print('Received HTTP GET connection request from %s' % str(addr))
+            request = conn.recv(1024)
+            request = request.decode('utf-8')
+            conn.settimeout(None)
+
+            # Call handle_request with the static_html as an argument
+            response, content_type = handle_request(request, static_html)
+
+            # Prepare and send the response
+            response_headers = f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}; charset=UTF-8\r\nConnection: close\r\n\r\n"
+            full_response = response_headers + response
+            conn.sendall(full_response.encode('utf-8'))
+
+        except OSError as e:
+            print('Connection closed due to OSError: ', str(e)) 
+        finally:
+            if conn:
+                conn.close()
+        time.sleep(0.01) 
+
+def handle_request(request, static_html):
+    """
+    Handle different request paths efficiently.
+    Takes the request and static_html as arguments.
+    Returns the response content and content type.
+    """
+    path = request.split(" ")[1]
+    # Handle root path
+    if path == "/":
+        # Reuse the pre-loaded static HTML, only replace dynamic content
+        dynamic_content = {
+            '{{ current_version }}': str(deliever_local_version_to_web_page()),
+            '{{ update_message }}': check_for_update()
+        }
+        response = static_html
+        for key, value in dynamic_content.items():
+            response = response.replace(key, value)
+        return response, "text/html"
+
+    # Handle other paths
+    else:
+        response = parse_request(request)
+        return response, "text/plain"
 
 def pico_os_main():
     s = ""

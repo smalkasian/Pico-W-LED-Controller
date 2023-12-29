@@ -15,10 +15,13 @@ import machine
 red = PWM(Pin(0))
 green = PWM(Pin(1))
 blue = PWM(Pin(2))
+white = PWM(Pin(3)) #
+pir = Pin(5, Pin.IN, Pin.PULL_UP)
 
 red.freq(1000)
 green.freq(1000)
 blue.freq(1000)
+white.freq(1000)
 
 isOn = False
 brightness = 65025
@@ -86,66 +89,52 @@ def led_setting_confirm_flash():
 #------------------------------------MAIN BODY FUNCTIONS------------------------------
 
 
-scheduled_time = None
-current_color = 'sunrise'
+def motion_detection():
+    global current_color, thread_flag
+    MAX_BRIGHTNESS = 65025
+    INCREMENT = 500  # Adjust for faster or slower fade
+    DECREMENT = 500  # Adjust for faster or slower dimming
+    SLEEP_INTERVAL = 0.1  # Adjust for speed of fade
+    MOTION_DETECTED_DURATION = 3  # Time in seconds lights stay on after motion detected
 
-def check_and_run_task():
-    while True:
-        # Check if scheduled_time is set
-        if scheduled_time is not None:
-            # Get the current time
-            current_time = datetime.datetime.now()
+    def set_light_brightness(brightness_value):
+        # Replace with your actual LED control logic
+        red.duty_u16(brightness_value)
+        green.duty_u16(brightness_value)
+        blue.duty_u16(brightness_value)
+        white.duty_u16(brightness_value)
 
-            # Check if the current time is equal to or has surpassed the scheduled time
-            if current_time >= scheduled_time:
-                # Run the task
-                sunrise()
-
-                # Reset the scheduled_time to None or set it to the next schedule
-                scheduled_time = None
-
-        # Sleep for a short duration to prevent high CPU usage
-        time.sleep(1)
-        return current_time
-
-def sunrise(current_color):
-    global current_time
-    thread_flag = False
-    lights_off()
-    print(f"Starting sunrise simulation" {current_time}) #for debug
-    total_duration = 1800 # Currently set to 30 mins
-    num_steps = 2048  # More steps for smoother transition - currently set this way arbitrarily.
-    step_duration = total_duration / num_steps
-
-    initial_red_steps = int(num_steps * 0.1)  # 10% of the steps for initial fade-in
-    red_to_orange_steps = int(num_steps * 0.5)  # Adjusted for 50% of the steps after initial red
-    orange_to_white_steps = num_steps - red_to_orange_steps - initial_red_steps
-    sunrise_stages = []
-
-    for step in range(initial_red_steps):
-        red_value = int((65535 / initial_red_steps) * step)
-        green_value = 0
-        blue_value = 0
-        sunrise_stages.append((red_value, green_value, blue_value))
-    for step in range(red_to_orange_steps):
-        red_value = 65535
-        green_value = int((32767 / red_to_orange_steps) * step)
-        blue_value = 0
-        sunrise_stages.append((red_value, green_value, blue_value))
-    for step in range(orange_to_white_steps):
-        red_value = 65535
-        green_value = 32767 + int((32768 / orange_to_white_steps) * step)
-        blue_value = int((65535 / orange_to_white_steps) * step)  
-        sunrise_stages.append((red_value, green_value, blue_value))
-    
-    while not thread_flag:
-        for stage in sunrise_stages:
-            if current_color != 'sunrise':
+    def adjust_brightness(target_brightness):
+        nonlocal brightness
+        while brightness != target_brightness:
+            if current_color != 'motion' or thread_flag:
                 return
-            red.duty_u16(stage[0])
-            green.duty_u16(stage[1])
-            blue.duty_u16(stage[2])
-            time.sleep(step_duration)
+            step = INCREMENT if brightness < target_brightness else -DECREMENT
+            brightness = max(min(brightness + step, MAX_BRIGHTNESS), 0)
+            set_light_brightness(brightness)
+            time.sleep(SLEEP_INTERVAL)
+
+    # Initialize the brightness to 0 (lights off)
+    brightness = 0
+    set_light_brightness(brightness)
+
+    if thread_flag:
+        return
+
+    while current_color == 'motion':
+        # Check PIR sensor value (assuming 1 is motion detected)
+        if pir.value() == 1:
+            print("Motion detected")
+            adjust_brightness(MAX_BRIGHTNESS)
+            time.sleep(MOTION_DETECTED_DURATION)  # Keep lights on for a set duration
+        else:
+            if brightness > 0:  # Only dim if the lights are on
+                print("No movement detected - dimming lights")
+                adjust_brightness(0)
+
+        time.sleep(.5)  # Wait a bit before checking for motion again
 
 # Example usage
-check_and_run_task(sunrise(current_color))
+current_color = 'motion'
+thread_flag = False
+motion_detection()
