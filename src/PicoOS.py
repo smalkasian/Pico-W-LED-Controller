@@ -14,9 +14,9 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("STABLE - SRC VERSION - 1.5.0")
+print("STABLE - SOURCE VERSION - 1.5.0")
 def deliver_current_version():
-    __version__ = (1,5,0)
+    __version__ = (1,5,1)
     return __version__
 
 #------------------------------------CHANGELOG-----------------------------------------
@@ -29,6 +29,8 @@ def deliver_current_version():
 # UPDATES: 1.5.0
 # • Added logic for optional motion detector feature.
 # • Added version tracking to the webpage
+# UPDATES: 1.5.1
+# • Quick update for the motion detection. Lowers the sensitivity and adds 2 second "positive" before turning on lights.
 
 # KNOWN ISSUES:
 # (IN 1.4.3) Lights hang and get stuck on red while fading. Also needs to be a little faster. (FIXED? Issue was that led only looped once.)
@@ -303,7 +305,7 @@ def connect_wifi():
 
 #-----------------------------------OTA UPDATE FUNCTIONS----------------------------
 
-def check_remote_version(): #CHECKS FOR BUILD VERSION UPDATES ONLY!!! DO NOT PASTE THIS INTO SRC
+def check_remote_version(): #CHECKS FOR SRC VERSION UPDATES ONLY!!! DO NOT PASTE THIS INTO BUILD
     try:
         remote_version_url = 'http://raw.githubusercontent.com/smalkasian/Pico-W-LED-Controller/main/src/PicoOS.py'
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
@@ -498,16 +500,27 @@ def strobe_lights():
 def motion_detection():
     global current_color, thread_flag
     MAX_BRIGHTNESS = 65025
-    INCREMENT = 500  # Adjust for faster or slower fade
-    DECREMENT = 500  # Adjust for faster or slower dimming
-    SLEEP_INTERVAL = 0.1  # Adjust for speed of fade
-    MOTION_DETECTED_DURATION = 60  # Time in seconds lights stay on after motion detected
-
+    INCREMENT = 2000  # Adjust for faster or slower fade
+    DECREMENT = 2000  # Adjust for faster or slower dimming
+    SLEEP_INTERVAL = 0.5  # Adjust for speed of fade
+    MOTION_DETECTED_DURATION = 30  # Time in seconds lights stay on after motion detected
+    DEBOUNCE_TIME = 2  # Time in seconds for debouncing
+    
     def set_light_brightness(brightness_value):
         red.duty_u16(brightness_value)
         green.duty_u16(brightness_value)
         blue.duty_u16(brightness_value)
         white.duty_u16(brightness_value)
+
+    def adjust_brightness(target_brightness):
+        nonlocal brightness
+        while brightness != target_brightness:
+            if current_color != 'motion' or thread_flag:
+                return
+            step = INCREMENT if brightness < target_brightness else -DECREMENT
+            brightness = max(min(brightness + step, MAX_BRIGHTNESS), 0)
+            set_light_brightness(brightness)
+            time.sleep(SLEEP_INTERVAL)
 
     def adjust_brightness(target_brightness):
         nonlocal brightness
@@ -525,17 +538,22 @@ def motion_detection():
     if thread_flag:
         return
 
+    motion_counter = 0
     while current_color == 'motion':
         if pir.value() == 1:
-            print("Motion detected")
-            adjust_brightness(MAX_BRIGHTNESS)
-            time.sleep(MOTION_DETECTED_DURATION)
+            motion_counter += 1
+            if motion_counter >= (DEBOUNCE_TIME / SLEEP_INTERVAL):
+                print("Motion detected")
+                adjust_brightness(MAX_BRIGHTNESS)
+                time.sleep(MOTION_DETECTED_DURATION)
+                motion_counter = 0
         else:
+            motion_counter = 0
             if brightness > 0:
                 print("No movement detected - dimming lights")
                 adjust_brightness(0)
 
-        time.sleep(.5)
+        time.sleep(SLEEP_INTERVAL)
 
 def LED_colors(): 
     global thread_flag

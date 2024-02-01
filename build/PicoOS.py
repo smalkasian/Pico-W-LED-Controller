@@ -14,7 +14,7 @@
 # malkasiangroup@gmail.com
 #
 #--------------------------------------------------------------------------------------
-print("UNSTABLE - BUILT VERSION - BETA 1.5.0-c")
+print("UNSTABLE - BUILD VERSION - BETA 1.5.1")
 def deliver_current_version():
     __version__ = (1,5,0)
     return __version__
@@ -502,10 +502,11 @@ def strobe_lights():
 def motion_detection():
     global current_color, thread_flag
     MAX_BRIGHTNESS = 65025
-    INCREMENT = 500  # Adjust for faster or slower fade
-    DECREMENT = 500  # Adjust for faster or slower dimming
-    SLEEP_INTERVAL = 0.1  # Adjust for speed of fade
-    MOTION_DETECTED_DURATION = 3  # Time in seconds lights stay on after motion detected
+    INCREMENT = 2000  # Adjust for faster or slower fade
+    DECREMENT = 2000  # Adjust for faster or slower dimming
+    SLEEP_INTERVAL = 0.5  # Adjust for speed of fade
+    MOTION_DETECTED_DURATION = 30  # Time in seconds lights stay on after motion detected
+    DEBOUNCE_TIME = 2  # Time in seconds for debouncing
 
     def set_light_brightness(brightness_value):
         # Replace with your actual LED control logic
@@ -524,25 +525,38 @@ def motion_detection():
             set_light_brightness(brightness)
             time.sleep(SLEEP_INTERVAL)
 
-    # Initialize the brightness to 0 (lights off)
+    def adjust_brightness(target_brightness):
+        nonlocal brightness
+        while brightness != target_brightness:
+            if current_color != 'motion' or thread_flag:
+                return
+            step = INCREMENT if brightness < target_brightness else -DECREMENT
+            brightness = max(min(brightness + step, MAX_BRIGHTNESS), 0)
+            set_light_brightness(brightness)
+            time.sleep(SLEEP_INTERVAL)
+
     brightness = 0
     set_light_brightness(brightness)
 
     if thread_flag:
         return
 
+    motion_counter = 0
     while current_color == 'motion':
-        # Check PIR sensor value (assuming 1 is motion detected)
         if pir.value() == 1:
-            print("Motion detected")
-            adjust_brightness(MAX_BRIGHTNESS)
-            time.sleep(MOTION_DETECTED_DURATION)  # Keep lights on for a set duration
+            motion_counter += 1
+            if motion_counter >= (DEBOUNCE_TIME / SLEEP_INTERVAL):
+                print("Motion detected")
+                adjust_brightness(MAX_BRIGHTNESS)
+                time.sleep(MOTION_DETECTED_DURATION)
+                motion_counter = 0
         else:
-            if brightness > 0:  # Only dim if the lights are on
+            motion_counter = 0
+            if brightness > 0:
                 print("No movement detected - dimming lights")
                 adjust_brightness(0)
 
-        time.sleep(.5)
+        time.sleep(SLEEP_INTERVAL)
 
 # UPDATES: 1.6.0 (START) ----------------------------------------------------------------
 
